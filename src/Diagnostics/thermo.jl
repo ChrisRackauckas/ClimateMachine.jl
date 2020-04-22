@@ -4,7 +4,7 @@ using ..Atmos: MoistureModel
 # Helpers to gather the thermodynamic variables across the DG grid
 #
 
-function vars_thermo(m::AtmosModel, FT)
+function vars_thermo(atmos::AtmosModel, FT)
     @vars begin
         T::FT
         θ_dry::FT
@@ -13,7 +13,7 @@ function vars_thermo(m::AtmosModel, FT)
         h_tot::FT
         h_moi::FT
 
-        moisture::vars_thermo(m.moisture, FT)
+        moisture::vars_thermo(atmos.moisture, FT)
     end
 end
 vars_thermo(::MoistureModel, FT) = @vars()
@@ -28,7 +28,7 @@ end
 num_thermo(bl, FT) = varsize(vars_thermo(bl, FT))
 thermo_vars(bl, array) = Vars{vars_thermo(bl, eltype(array))}(array)
 
-# visitor function, to use with `@visitQ`
+# compute thermodynamic variables visitor function, to use with `@visitQ`
 function compute_thermo!(atmos::AtmosModel, state, aux, thermo)
     e_tot = state.ρe / state.ρ
     ts = thermo_state(atmos, state, aux)

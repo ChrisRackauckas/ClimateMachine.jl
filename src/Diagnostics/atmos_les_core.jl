@@ -6,11 +6,11 @@ using ..MoistThermodynamics
 using LinearAlgebra
 
 """
-    atmos_core_init(bl, currtime)
+    atmos_les_core_init(bl, currtime)
 
-Initialize the 'AtmosCore' diagnostics group.
+Initialize the 'AtmosLESCore' diagnostics group.
 """
-function atmos_core_init(dgngrp::DiagnosticsGroup, currtime)
+function atmos_les_core_init(dgngrp::DiagnosticsGroup, currtime)
     dg = Settings.dg
     bl = dg.balance_law
     if isa(bl.moisture, DryModel)
@@ -25,7 +25,7 @@ function atmos_core_init(dgngrp::DiagnosticsGroup, currtime)
 end
 
 # Simple horizontal averages
-function vars_atmos_core_simple(m::AtmosModel, FT)
+function vars_atmos_les_core_simple(m::AtmosModel, FT)
     @vars begin
         u_core::FT
         v_core::FT
@@ -39,11 +39,11 @@ function vars_atmos_core_simple(m::AtmosModel, FT)
         ei_core::FT             # e_int
     end
 end
-num_atmos_core_simple_vars(m, FT) = varsize(vars_atmos_core_simple(m, FT))
-atmos_core_simple_vars(m, array) =
-    Vars{vars_atmos_core_simple(m, eltype(array))}(array)
+num_atmos_les_core_simple_vars(m, FT) = varsize(vars_atmos_les_core_simple(m, FT))
+atmos_les_core_simple_vars(m, array) =
+    Vars{vars_atmos_les_core_simple(m, eltype(array))}(array)
 
-function atmos_core_simple_sums!(
+function atmos_les_core_simple_sums!(
     atmos::AtmosModel,
     state_conservative,
     thermo,
@@ -65,7 +65,7 @@ function atmos_core_simple_sums!(
 end
 
 # Variances and covariances
-function vars_atmos_core_ho(m::AtmosModel, FT)
+function vars_atmos_les_core_ho(m::AtmosModel, FT)
     @vars begin
         var_u_core::FT          # u′u′
         var_v_core::FT          # v′v′
@@ -82,10 +82,10 @@ function vars_atmos_core_ho(m::AtmosModel, FT)
         cov_qt_ei_core::FT      # q_tot′e_int′
     end
 end
-num_atmos_core_ho_vars(m, FT) = varsize(vars_atmos_core_ho(m, FT))
-atmos_core_ho_vars(m, array) = Vars{vars_atmos_core_ho(m, eltype(array))}(array)
+num_atmos_les_core_ho_vars(m, FT) = varsize(vars_atmos_les_core_ho(m, FT))
+atmos_les_core_ho_vars(m, array) = Vars{vars_atmos_les_core_ho(m, eltype(array))}(array)
 
-function atmos_core_ho_sums!(
+function atmos_les_core_ho_sums!(
     atmos::AtmosModel,
     state_conservative,
     thermo,
@@ -126,11 +126,11 @@ function atmos_core_ho_sums!(
 end
 
 """
-    atmos_core_collect(bl, currtime)
+    atmos_les_core_collect(bl, currtime)
 
 Perform a global grid traversal to compute various diagnostics.
 """
-function atmos_core_collect(dgngrp::DiagnosticsGroup, currtime)
+function atmos_les_core_collect(dgngrp::DiagnosticsGroup, currtime)
     dg = Settings.dg
     bl = dg.balance_law
     if isa(bl.moisture, DryModel)
@@ -177,10 +177,12 @@ function atmos_core_collect(dgngrp::DiagnosticsGroup, currtime)
     #   - accumulate the simple horizontal sums
     #
     core_repdvsr = zeros(FT, Nqk * nvertelem)
-    thermo_array =
-        [zeros(FT, num_thermo(bl, FT)) for _ in 1:npoints, _ in 1:nrealelem]
+    thermo_array = [
+        zeros(FT, num_thermo(bl, FT))
+        for _ in 1:npoints, _ in 1:nrealelem
+    ]
     simple_sums = [
-        zeros(FT, num_atmos_core_simple_vars(bl, FT))
+        zeros(FT, num_atmos_les_core_simple_vars(bl, FT))
         for _ in 1:(Nqk * nvertelem)
     ]
     ql_w_gt_0 = [zeros(FT, (Nq * Nq * nhorzelem)) for _ in 1:(Nqk * nvertelem)]
@@ -201,14 +203,14 @@ function atmos_core_collect(dgngrp::DiagnosticsGroup, currtime)
             ql_w_gt_0[evk][idx] = one(FT)
             core_repdvsr[evk] += MH
 
-            simple = atmos_core_simple_vars(bl, simple_sums[evk])
-            atmos_core_simple_sums!(bl, state_conservative, thermo, MH, simple)
+            simple = atmos_les_core_simple_vars(bl, simple_sums[evk])
+            atmos_les_core_simple_sums!(bl, state_conservative, thermo, MH, simple)
         end
     end
 
     # reduce horizontal sums and core fraction across ranks and compute averages
     simple_avgs = [
-        zeros(FT, num_atmos_core_simple_vars(bl, FT))
+        zeros(FT, num_atmos_les_core_simple_vars(bl, FT))
         for _ in 1:(Nqk * nvertelem)
     ]
     core_frac = zeros(FT, Nqk * nvertelem)
@@ -226,10 +228,10 @@ function atmos_core_collect(dgngrp::DiagnosticsGroup, currtime)
     end
 
     # complete density averaging
-    simple_varnames = flattenednames(vars_atmos_core_simple(bl, FT))
+    simple_varnames = flattenednames(vars_atmos_les_core_simple(bl, FT))
     for vari in 1:length(simple_varnames)
         for evk in 1:(Nqk * nvertelem)
-            simple_ha = atmos_core_simple_vars(bl, simple_avgs[evk])
+            simple_ha = atmos_les_core_simple_vars(bl, simple_avgs[evk])
             avg_rho = simple_ha.avg_rho_core
             if simple_varnames[vari] != "avg_rho_core"
                 simple_avgs[evk][vari] /= avg_rho
@@ -239,7 +241,7 @@ function atmos_core_collect(dgngrp::DiagnosticsGroup, currtime)
 
     # compute the variances and covariances
     ho_sums =
-        [zeros(FT, num_atmos_core_ho_vars(bl, FT)) for _ in 1:(Nqk * nvertelem)]
+        [zeros(FT, num_atmos_les_core_ho_vars(bl, FT)) for _ in 1:(Nqk * nvertelem)]
     @visitQ nhorzelem nvertelem Nqk Nq begin
         evk = Nqk * (ev - 1) + k
 
@@ -249,9 +251,9 @@ function atmos_core_collect(dgngrp::DiagnosticsGroup, currtime)
         MH = host_vgeo[ijk, grid.MHid, e]
 
         if thermo.moisture.q_liq > 0 && state_conservative.ρu[3] > 0
-            simple_ha = atmos_core_simple_vars(bl, simple_avgs[evk])
-            ho = atmos_core_ho_vars(bl, ho_sums[evk])
-            atmos_core_ho_sums!(
+            simple_ha = atmos_les_core_simple_vars(bl, simple_avgs[evk])
+            ho = atmos_les_core_ho_vars(bl, ho_sums[evk])
+            atmos_les_core_ho_sums!(
                 bl,
                 state_conservative,
                 thermo,
@@ -264,7 +266,7 @@ function atmos_core_collect(dgngrp::DiagnosticsGroup, currtime)
 
     # reduce across ranks and compute averages
     ho_avgs =
-        [zeros(FT, num_atmos_core_ho_vars(bl, FT)) for _ in 1:(Nqk * nvertelem)]
+        [zeros(FT, num_atmos_les_core_ho_vars(bl, FT)) for _ in 1:(Nqk * nvertelem)]
     for evk in 1:(Nqk * nvertelem)
         MPI.Reduce!(ho_sums[evk], ho_avgs[evk], +, 0, mpicomm)
         if mpirank == 0
@@ -285,11 +287,11 @@ function atmos_core_collect(dgngrp::DiagnosticsGroup, currtime)
             varvals[simple_varnames[vari]] = (("z",), davg)
         end
 
-        ho_varnames = flattenednames(vars_atmos_core_ho(bl, FT))
+        ho_varnames = flattenednames(vars_atmos_les_core_ho(bl, FT))
         for vari in 1:length(ho_varnames)
             davg = zeros(FT, Nqk * nvertelem)
             for evk in 1:(Nqk * nvertelem)
-                simple_ha = atmos_core_simple_vars(bl, simple_avgs[evk])
+                simple_ha = atmos_les_core_simple_vars(bl, simple_avgs[evk])
                 avg_rho = simple_ha.avg_rho_core
                 davg[evk] = ho_avgs[evk][vari] / avg_rho
             end
@@ -318,4 +320,4 @@ function atmos_core_collect(dgngrp::DiagnosticsGroup, currtime)
     return nothing
 end # function collect
 
-function atmos_core_fini(dgngrp::DiagnosticsGroup, currtime) end
+function atmos_les_core_fini(dgngrp::DiagnosticsGroup, currtime) end

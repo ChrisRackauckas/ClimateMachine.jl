@@ -6,18 +6,18 @@ using ..MoistThermodynamics
 using LinearAlgebra
 
 """
-    atmos_default_init(bl, currtime)
+    atmos_les_default_init(bl, currtime)
 
-Initialize the 'AtmosDefault' diagnostics group.
+Initialize the 'AtmosLESDefault' diagnostics group.
 """
-function atmos_default_init(dgngrp::DiagnosticsGroup, currtime)
+function atmos_les_default_init(dgngrp::DiagnosticsGroup, currtime)
     atmos_collect_onetime(Settings.mpicomm, Settings.dg, Settings.Q)
 
     return nothing
 end
 
 # Simple horizontal averages
-function vars_atmos_default_simple(m::AtmosModel, FT)
+function vars_atmos_les_default_simple(m::AtmosModel, FT)
     @vars begin
         u::FT
         v::FT
@@ -33,11 +33,11 @@ function vars_atmos_default_simple(m::AtmosModel, FT)
         hm::FT
         w_ht_sgs::FT
 
-        moisture::vars_atmos_default_simple(m.moisture, FT)
+        moisture::vars_atmos_les_default_simple(m.moisture, FT)
     end
 end
-vars_atmos_default_simple(::MoistureModel, FT) = @vars()
-function vars_atmos_default_simple(m::EquilMoist, FT)
+vars_atmos_les_default_simple(::MoistureModel, FT) = @vars()
+function vars_atmos_les_default_simple(m::EquilMoist, FT)
     @vars begin
         qt::FT                  # q_tot
         ql::FT                  # q_liq
@@ -46,11 +46,11 @@ function vars_atmos_default_simple(m::EquilMoist, FT)
         w_qt_sgs::FT
     end
 end
-num_atmos_default_simple_vars(m, FT) = varsize(vars_atmos_default_simple(m, FT))
-atmos_default_simple_vars(m, array) =
-    Vars{vars_atmos_default_simple(m, eltype(array))}(array)
+num_atmos_les_default_simple_vars(m, FT) = varsize(vars_atmos_les_default_simple(m, FT))
+atmos_les_default_simple_vars(m, array) =
+    Vars{vars_atmos_les_default_simple(m, eltype(array))}(array)
 
-function atmos_default_simple_sums!(
+function atmos_les_default_simple_sums!(
     atmos::AtmosModel,
     state_conservative,
     state_gradient_flux,
@@ -83,7 +83,7 @@ function atmos_default_simple_sums!(
     d_h_tot = -D_t .* state_gradient_flux.∇h_tot
     sums.w_ht_sgs += MH * d_h_tot[end] * state_conservative.ρ
 
-    atmos_default_simple_sums!(
+    atmos_les_default_simple_sums!(
         atmos.moisture,
         state_conservative,
         state_gradient_flux,
@@ -95,7 +95,7 @@ function atmos_default_simple_sums!(
 
     return nothing
 end
-function atmos_default_simple_sums!(
+function atmos_les_default_simple_sums!(
     ::MoistureModel,
     state_conservative,
     state_gradient_flux,
@@ -106,7 +106,7 @@ function atmos_default_simple_sums!(
 )
     return nothing
 end
-function atmos_default_simple_sums!(
+function atmos_les_default_simple_sums!(
     moist::EquilMoist,
     state_conservative,
     state_gradient_flux,
@@ -126,7 +126,7 @@ function atmos_default_simple_sums!(
 end
 
 # Variances and covariances
-function vars_atmos_default_ho(m::AtmosModel, FT)
+function vars_atmos_les_default_ho(m::AtmosModel, FT)
     @vars begin
         var_u::FT               # u′u′
         var_v::FT               # v′v′
@@ -142,11 +142,11 @@ function vars_atmos_default_ho(m::AtmosModel, FT)
         cov_w_thv::FT           # w′θ_v′
         cov_w_ei::FT            # w′e_int′
 
-        moisture::vars_atmos_default_ho(m.moisture, FT)
+        moisture::vars_atmos_les_default_ho(m.moisture, FT)
     end
 end
-vars_atmos_default_ho(::MoistureModel, FT) = @vars()
-function vars_atmos_default_ho(m::EquilMoist, FT)
+vars_atmos_les_default_ho(::MoistureModel, FT) = @vars()
+function vars_atmos_les_default_ho(m::EquilMoist, FT)
     @vars begin
         var_qt::FT              # q_tot′q_tot′
         var_thl::FT             # θ_liq_ice′θ_liq_ice′
@@ -159,11 +159,11 @@ function vars_atmos_default_ho(m::EquilMoist, FT)
         cov_qt_ei::FT           # q_tot′e_int′
     end
 end
-num_atmos_default_ho_vars(m, FT) = varsize(vars_atmos_default_ho(m, FT))
-atmos_default_ho_vars(m, array) =
-    Vars{vars_atmos_default_ho(m, eltype(array))}(array)
+num_atmos_les_default_ho_vars(m, FT) = varsize(vars_atmos_les_default_ho(m, FT))
+atmos_les_default_ho_vars(m, array) =
+    Vars{vars_atmos_les_default_ho(m, eltype(array))}(array)
 
-function atmos_default_ho_sums!(
+function atmos_les_default_ho_sums!(
     atmos::AtmosModel,
     state_conservative,
     thermo,
@@ -201,7 +201,7 @@ function atmos_default_ho_sums!(
     sums.cov_w_thv += MH * w′ * θ_vir′ * state_conservative.ρ
     sums.cov_w_ei += MH * w′ * e_int′ * state_conservative.ρ
 
-    atmos_default_ho_sums!(
+    atmos_les_default_ho_sums!(
         atmos.moisture,
         state_conservative,
         thermo,
@@ -214,7 +214,7 @@ function atmos_default_ho_sums!(
 
     return nothing
 end
-function atmos_default_ho_sums!(
+function atmos_les_default_ho_sums!(
     ::MoistureModel,
     state_conservative,
     thermo,
@@ -226,7 +226,7 @@ function atmos_default_ho_sums!(
 )
     return nothing
 end
-function atmos_default_ho_sums!(
+function atmos_les_default_ho_sums!(
     moist::EquilMoist,
     state_conservative,
     thermo,
@@ -256,12 +256,12 @@ function atmos_default_ho_sums!(
 end
 
 """
-    atmos_default_collect(bl, currtime)
+    atmos_les_default_collect(bl, currtime)
 
-Collect the various 'AtmosDefault' diagnostic variables for the
+Collect the various 'AtmosLESDefault' diagnostic variables for the
 current timestep and write them into a file.
 """
-function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
+function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
     mpicomm = Settings.mpicomm
     dg = Settings.dg
     Q = Settings.Q
@@ -299,10 +299,12 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
     # - accumulate the simple horizontal sums, and
     # - determine the cloud fraction, top and base
     #
-    thermo_array =
-        [zeros(FT, num_thermo(bl, FT)) for _ in 1:npoints, _ in 1:nrealelem]
+    thermo_array = [
+        zeros(FT, num_thermo(bl, FT))
+        for _ in 1:npoints, _ in 1:nrealelem
+    ]
     simple_sums = [
-        zeros(FT, num_atmos_default_simple_vars(bl, FT))
+        zeros(FT, num_atmos_les_default_simple_vars(bl, FT))
         for _ in 1:(Nqk * nvertelem)
     ]
     ql_gt_0_z = [zeros(FT, (Nq * Nq * nhorzelem)) for _ in 1:(Nqk * nvertelem)]
@@ -324,8 +326,8 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
         thermo = thermo_vars(bl, thermo_array[ijk, e])
         compute_thermo!(bl, state_conservative, state_auxiliary, thermo)
 
-        simple = atmos_default_simple_vars(bl, simple_sums[evk])
-        atmos_default_simple_sums!(
+        simple = atmos_les_default_simple_vars(bl, simple_sums[evk])
+        atmos_les_default_simple_sums!(
             bl,
             state_conservative,
             state_gradient_flux,
@@ -349,7 +351,7 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
 
     # reduce horizontal sums and cloud data across ranks and compute averages
     simple_avgs = [
-        zeros(FT, num_atmos_default_simple_vars(bl, FT))
+        zeros(FT, num_atmos_les_default_simple_vars(bl, FT))
         for _ in 1:(Nqk * nvertelem)
     ]
     cld_frac = zeros(FT, Nqk * nvertelem)
@@ -381,11 +383,11 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
     # complete density averaging
     simple_varnames = map(
         s -> startswith(s, "moisture.") ? s[10:end] : s,
-        flattenednames(vars_atmos_default_simple(bl, FT)),
+        flattenednames(vars_atmos_les_default_simple(bl, FT)),
     )
     for vari in 1:length(simple_varnames)
         for evk in 1:(Nqk * nvertelem)
-            simple_ha = atmos_default_simple_vars(bl, simple_avgs[evk])
+            simple_ha = atmos_les_default_simple_vars(bl, simple_avgs[evk])
             avg_rho = simple_ha.avg_rho
             if simple_varnames[vari] != "avg_rho"
                 simple_avgs[evk][vari] /= avg_rho
@@ -395,7 +397,7 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
 
     # compute the variances and covariances
     ho_sums = [
-        zeros(FT, num_atmos_default_ho_vars(bl, FT))
+        zeros(FT, num_atmos_les_default_ho_vars(bl, FT))
         for _ in 1:(Nqk * nvertelem)
     ]
     @visitQ nhorzelem nvertelem Nqk Nq begin
@@ -406,9 +408,9 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
         thermo = thermo_vars(bl, thermo_array[ijk, e])
         MH = host_vgeo[ijk, grid.MHid, e]
 
-        simple_ha = atmos_default_simple_vars(bl, simple_avgs[evk])
-        ho = atmos_default_ho_vars(bl, ho_sums[evk])
-        atmos_default_ho_sums!(
+        simple_ha = atmos_les_default_simple_vars(bl, simple_avgs[evk])
+        ho = atmos_les_default_ho_vars(bl, ho_sums[evk])
+        atmos_les_default_ho_sums!(
             bl,
             state_conservative,
             thermo,
@@ -420,7 +422,7 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
 
     # reduce across ranks and compute averages
     ho_avgs = [
-        zeros(FT, num_atmos_default_ho_vars(bl, FT))
+        zeros(FT, num_atmos_les_default_ho_vars(bl, FT))
         for _ in 1:(Nqk * nvertelem)
     ]
     for evk in 1:(Nqk * nvertelem)
@@ -443,12 +445,12 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
 
         ho_varnames = map(
             s -> startswith(s, "moisture.") ? s[10:end] : s,
-            flattenednames(vars_atmos_default_ho(bl, FT)),
+            flattenednames(vars_atmos_les_default_ho(bl, FT)),
         )
         for vari in 1:length(ho_varnames)
             davg = zeros(FT, Nqk * nvertelem)
             for evk in 1:(Nqk * nvertelem)
-                simple_ha = atmos_default_simple_vars(bl, simple_avgs[evk])
+                simple_ha = atmos_les_default_simple_vars(bl, simple_avgs[evk])
                 avg_rho = simple_ha.avg_rho
                 davg[evk] = ho_avgs[evk][vari] / avg_rho
             end
@@ -482,4 +484,4 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
     return nothing
 end # function collect
 
-function atmos_default_fini(dgngrp::DiagnosticsGroup, currtime) end
+function atmos_les_default_fini(dgngrp::DiagnosticsGroup, currtime) end

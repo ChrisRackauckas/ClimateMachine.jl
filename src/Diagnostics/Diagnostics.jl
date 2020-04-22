@@ -26,6 +26,7 @@ using Printf
 using StaticArrays
 
 using ClimateMachine
+using ..ConfigTypes
 using ..DGmethods
 using ..DGmethods:
     number_state_conservative,
@@ -84,7 +85,6 @@ mutable struct DiagnosticsGroup
     out_prefix::String
     writer::AbstractWriter
     interpol::Union{Nothing, InterpolationTopology}
-    project::Bool
     num::Int
 
     DiagnosticsGroup(
@@ -96,7 +96,6 @@ mutable struct DiagnosticsGroup
         out_prefix,
         writer,
         interpol,
-        project,
     ) = new(
         name,
         init,
@@ -106,7 +105,6 @@ mutable struct DiagnosticsGroup
         out_prefix,
         writer,
         interpol,
-        project,
         0,
     )
 end
@@ -125,79 +123,115 @@ end
 
 """
     setup_atmos_default_diagnostics(
+        ::AtmosLESConfigType,
         interval::String,
         out_prefix::String;
         writer = NetCDFWriter(),
         interpol = nothing,
-        project = true,
     )
 
 Create and return a `DiagnosticsGroup` containing the "AtmosDefault"
-diagnostics. All the diagnostics in the group will run at the specified
-`interval`, be interpolated to the specified boundaries and resolution,
-and will be written to files prefixed by `out_prefix` using `writer`.
+diagnostics for LES configurations. All the diagnostics in the group will
+run at the specified `interval`, be interpolated to the specified boundaries
+and resolution, and will be written to files prefixed by `out_prefix` using
+`writer`.
 """
 function setup_atmos_default_diagnostics(
+    ::AtmosLESConfigType,
     interval::String,
     out_prefix::String;
     writer = NetCDFWriter(),
     interpol = nothing,
-    project = true,
 )
     return DiagnosticsGroup(
-        "AtmosDefault",
-        Diagnostics.atmos_default_init,
-        Diagnostics.atmos_default_fini,
-        Diagnostics.atmos_default_collect,
+        "AtmosLESDefault",
+        Diagnostics.atmos_les_default_init,
+        Diagnostics.atmos_les_default_fini,
+        Diagnostics.atmos_les_default_collect,
         interval,
         out_prefix,
         writer,
         interpol,
-        project,
+    )
+end
+
+"""
+    setup_atmos_default_diagnostics(
+        ::AtmosGCMConfigType,
+        interval::Int,
+        out_prefix::String;
+        writer::AbstractWriter,
+        interpol = nothing,
+    )
+
+Create and return a `DiagnosticsGroup` containing the "AtmosDefault"
+diagnostics for GCM configurations. All the diagnostics in the group will run
+at the specified `interval`, be interpolated to the specified boundaries and
+resolution, and will be written to files prefixed by `out_prefix` using
+`writer`.
+"""
+function setup_atmos_default_diagnostics(
+    ::AtmosGCMConfigType,
+    interval::String,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+)
+    @assert !isnothing(interpol)
+
+    return DiagnosticsGroup(
+        "AtmosGCMDefault",
+        Diagnostics.atmos_gcm_default_init,
+        Diagnostics.atmos_gcm_default_fini,
+        Diagnostics.atmos_gcm_default_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
     )
 end
 
 """
     setup_atmos_core_diagnostics(
-            interval::Int,
-            out_prefix::String;
-            writer::AbstractWriter,
-            interpol = nothing,
-            project  = true)
+        ::AtmosLESConfigType,
+        interval::Int,
+        out_prefix::String;
+        writer::AbstractWriter,
+        interpol = nothing,
+    )
 
-Create and return a `DiagnosticsGroup` containing the "AtmosCore"
-diagnostics. All the diagnostics in the group will run at the
-specified `interval`, be interpolated to the specified boundaries
-and resolution, and will be written to files prefixed by `out_prefix`
-using `writer`.
+Create and return a `DiagnosticsGroup` containing the "AtmosLESCore" diagnostics
+for LES configurations. All the diagnostics in the group will run at the
+specified `interval`, be interpolated to the specified boundaries and
+resolution, and will be written to files prefixed by `out_prefix` using
+`writer`.
 """
 function setup_atmos_core_diagnostics(
+    ::AtmosLESConfigType,
     interval::String,
     out_prefix::String;
     writer = NetCDFWriter(),
     interpol = nothing,
-    project = true,
 )
     return DiagnosticsGroup(
-        "AtmosCore",
-        Diagnostics.atmos_core_init,
-        Diagnostics.atmos_core_fini,
-        Diagnostics.atmos_core_collect,
+        "AtmosLESCore",
+        Diagnostics.atmos_les_core_init,
+        Diagnostics.atmos_les_core_fini,
+        Diagnostics.atmos_les_core_collect,
         interval,
         out_prefix,
         writer,
         interpol,
-        project,
     )
 end
 
 """
     setup_dump_state_and_aux_diagnostics(
+        ::ClimateMachineConfigType,
         interval::String,
         out_prefix::String;
         writer = NetCDFWriter(),
         interpol = nothing,
-        project = true,
     )
 
 Create and return a `DiagnosticsGroup` containing a diagnostic that
@@ -205,11 +239,11 @@ simply dumps the state and aux variables at the specified `interval`
 after being interpolated, into NetCDF files prefixed by `out_prefix`.
 """
 function setup_dump_state_and_aux_diagnostics(
+    ::ClimateMachineConfigType,
     interval::String,
     out_prefix::String;
     writer = NetCDFWriter(),
     interpol = nothing,
-    project = true,
 )
     return DiagnosticsGroup(
         "DumpStateAndAux",
@@ -220,7 +254,6 @@ function setup_dump_state_and_aux_diagnostics(
         out_prefix,
         writer,
         interpol,
-        project,
     )
 end
 
@@ -242,6 +275,18 @@ macro visitQ(nhorzelem, nvertelem, Nqk, Nq, expr)
                             $expr
                         end
                     end
+                end
+            end
+        end
+    end)
+end
+
+macro visitIQ(nlon, nlat, nrad, expr)
+    return esc(quote
+        for lo in 1:nlon
+            for la in 1:nlat
+                for le in 1:nrad
+                    $expr
                 end
             end
         end
@@ -283,9 +328,10 @@ end
 
 include("atmos_common.jl")
 include("thermo.jl")
-include("atmos_default.jl")
-include("atmos_core.jl")
-include("dump_state_and_aux.jl")
 include("diagnostic_fields.jl")
+include("atmos_les_default.jl")
+include("atmos_gcm_default.jl")
+include("atmos_les_core.jl")
+include("dump_state_and_aux.jl")
 
 end # module Diagnostics
