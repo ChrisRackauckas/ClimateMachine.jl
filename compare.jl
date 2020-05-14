@@ -2,9 +2,10 @@ using Printf
 using FileIO
 using LinearAlgebra
 
-is_approx_or_same(a, b) = isapprox(a, b) || all(a .=== b)
+# check(a, b) = all(isapprox.(a, b)) || all(a .=== b)
+check(a, b) = norm((a - b) ./ maximum(a, dims = (1, 3)), Inf)
 
-for step in 1
+for step in 1:2
     for substep in 1:10
         @info step substep
 
@@ -22,14 +23,25 @@ for step in 1
         #     @assert all(bRs .=== gRs)
         # end
 
-        @assert is_approx_or_same(b["Q"], g["Q"])
-        @assert is_approx_or_same(b["Qhat"], g["Qhat"])
-        @assert is_approx_or_same(b["Qtt"], g["Qtt"])
+        @show check(b["Q"], g["Q"])
+
+        @show check(b["Qhat"], g["Qhat"])
+
+        @show check(b["Qtt"], g["Qtt"])
+
+        # @show check(b["Qtt"][:,1:end-1,:], g["Qtt"][:,1:end-1,:])
+        # @show check(b["Qtt"][:,1,:], g["Qtt"][:,1,:])
+        # @show check(b["Qtt"][:,2,:], g["Qtt"][:,2,:])
+        # @show check(b["Qtt"][:,3,:], g["Qtt"][:,3,:])
+        # @show check(b["Qtt"][:,4,:], g["Qtt"][:,4,:])
+        # @show check(b["Qtt"][:,5,:], g["Qtt"][:,5,:])
+        # @show check(b["Qtt"][:,end,:], g["Qtt"][:,end,:])
+
         for (bQs, gQs) in zip(b["Qstages"], g["Qstages"])
-            @assert is_approx_or_same(bQs, gQs)
+            @show check(bQs, gQs)
         end
         for (bRs, gRs) in zip(b["Rstages"], g["Rstages"])
-            @assert is_approx_or_same(bRs, gRs)
+            @show check(bRs, gRs)
         end
 
     end
