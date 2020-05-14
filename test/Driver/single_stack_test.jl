@@ -115,11 +115,11 @@ include(joinpath(clima_dir, "tutorials", "Land", "plotting_funcs.jl"));
 Base.@kwdef struct Environment{FT} <: BalanceLaw
 end
 
-Base.@kwdef struct Updraft{FT} <: BalanceLaw
+Base.@kwdef struct Updrafts{FT, N} <: BalanceLaw
 end
 
 Base.@kwdef struct EDMF{FT, N} <: BalanceLaw
-    updraft::MArray{Tuple{N},Updraft{FT}} = [ntuple(i->Updraft{FT}(), N)...]
+    updrafts::Updrafts{FT, N} = Updrafts{FT,N}()
     environment::Environment{FT} = Environment{FT}()
 end
 
@@ -162,81 +162,87 @@ m = SingleStack{FT, N}();
 # will be used by the solver.
 
 # Specify auxiliary variables for `SingleStack`
-vars_state_auxiliary_base(FT) = @vars(T::FT)
-vars_state_auxiliary(::Updraft, FT) = vars_state_auxiliary_base(FT)
-vars_state_auxiliary(::Environment, FT) = @vars(T::FT,
-                                                ρ::FT,
-                                                ρu::SVector{3, FT},
-                                                ρcT::FT)
+
+function vars_state_auxiliary(::Updrafts{FT_dummy,N}, FT) where {FT_dummy,N}
+    @vars(T::SVector{N, FT})
+end
+function vars_state_auxiliary(::Environment, FT)
+    @vars(T::FT,
+    ρ::FT,
+    ρu::FT,
+    ρv::FT,
+    ρw::FT,
+    ρcT::FT)
+end
 
 function vars_state_auxiliary(m::EDMF, FT)
-    @vars(vars_state_auxiliary(m.environment, FT),
-          vars_state_auxiliary.(m.updraft, Ref(FT))...
+    @vars(environment::vars_state_auxiliary(m.environment, FT),
+          updrafts::vars_state_auxiliary(m.updrafts, FT)
           );
 end
 
 function vars_state_auxiliary(m::SingleStack, FT)
     @vars(z::FT,
-          vars_state_auxiliary_base(FT),
-          vars_state_auxiliary(m.edmf, FT));
+          T::FT,
+          edmf::vars_state_auxiliary(m.edmf, FT));
 end
 
-# Specify state variables, the variables solved for in the PDEs, for
-# `SingleStack`
-function vars_state_conservative_base(FT)
-    @vars(ρ::FT,
-          ρu::SVector{3, FT},
-          ρcT::FT)
-end
-vars_state_conservative(::Updraft, FT) = vars_state_conservative_base(FT)
-vars_state_conservative(::Environment, FT) = @vars()
+# # Specify state variables, the variables solved for in the PDEs, for
+# # `SingleStack`
+# function vars_state_conservative_base(FT)
+#     @vars(ρ::FT,
+#           ρu::SVector{3, FT},
+#           ρcT::FT)
+# end
+# vars_state_conservative(::Updrafts, FT) = vars_state_conservative_base(FT)
+# vars_state_conservative(::Environment, FT) = @vars()
 
-function vars_state_conservative(m::EDMF, FT)
-    @vars(vars_state_conservative(m.environment, FT),
-          vars_state_conservative.(m.updraft, Ref(FT))...
-          );
-end
+# function vars_state_conservative(m::EDMF, FT)
+#     @vars(vars_state_conservative(m.environment, FT),
+#           vars_state_conservative.(m.updrafts, Ref(FT))...
+#           );
+# end
 
-function vars_state_conservative(m::SingleStack, FT)
-    @vars(vars_state_conservative_base(FT),
-          vars_state_conservative(m.edmf, FT));
-end
+# function vars_state_conservative(m::SingleStack, FT)
+#     @vars(vars_state_conservative_base(FT),
+#           vars_state_conservative(m.edmf, FT));
+# end
 
-function vars_state_gradient_base(FT)
-    @vars(ρu::SVector{3, FT},
-          ρcT::FT)
-end
-vars_state_gradient(::Updraft, FT) = vars_state_gradient_base(FT)
-vars_state_gradient(::Environment, FT) = vars_state_gradient_base(FT)
+# function vars_state_gradient_base(FT)
+#     @vars(ρu::SVector{3, FT},
+#           ρcT::FT)
+# end
+# vars_state_gradient(::Updrafts, FT) = vars_state_gradient_base(FT)
+# vars_state_gradient(::Environment, FT) = vars_state_gradient_base(FT)
 
-function vars_state_gradient(m::EDMF, FT)
-    @vars(vars_state_gradient(m.environment, FT),
-          vars_state_gradient.(m.updraft, Ref(FT))...
-          );
-end
+# function vars_state_gradient(m::EDMF, FT)
+#     @vars(vars_state_gradient(m.environment, FT),
+#           vars_state_gradient.(m.updrafts, Ref(FT))...
+#           );
+# end
 
-function vars_state_gradient(m::SingleStack, FT)
-    @vars(vars_state_gradient_base(FT),
-          vars_state_gradient(m.edmf, FT));
-end
+# function vars_state_gradient(m::SingleStack, FT)
+#     @vars(vars_state_gradient_base(FT),
+#           vars_state_gradient(m.edmf, FT));
+# end
 
-function vars_state_gradient_flux_base(FT)
-    @vars(μ∇u::SMatrix{3, 3, FT, 9},
-          α∇ρcT::SVector{3, FT})
-end
-vars_state_gradient_flux(::Updraft, FT) = vars_state_gradient_flux_base(FT)
-vars_state_gradient_flux(::Environment, FT) = vars_state_gradient_flux_base(FT)
+# function vars_state_gradient_flux_base(FT)
+#     @vars(μ∇u::SMatrix{3, 3, FT, 9},
+#           α∇ρcT::SVector{3, FT})
+# end
+# vars_state_gradient_flux(::Updrafts, FT) = vars_state_gradient_flux_base(FT)
+# vars_state_gradient_flux(::Environment, FT) = vars_state_gradient_flux_base(FT)
 
-function vars_state_gradient_flux(m::EDMF, FT)
-    @vars(vars_state_gradient_flux(m.environment, FT),
-          vars_state_gradient_flux.(m.updraft, Ref(FT))...
-          );
-end
+# function vars_state_gradient_flux(m::EDMF, FT)
+#     @vars(vars_state_gradient_flux(m.environment, FT),
+#           vars_state_gradient_flux.(m.updrafts, Ref(FT))...
+#           );
+# end
 
-function vars_state_gradient_flux(m::SingleStack, FT)
-    @vars(vars_state_gradient_flux_base(FT),
-          vars_state_gradient_flux(m.edmf, FT));
-end
+# function vars_state_gradient_flux(m::SingleStack, FT)
+#     @vars(vars_state_gradient_flux_base(FT),
+#           vars_state_gradient_flux(m.edmf, FT));
+# end
 
 # # ## Define the compute kernels
 
