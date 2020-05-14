@@ -94,6 +94,8 @@ where:
     It would be great to replace the above simple power laws with more accurate relationships.
     For example:
     [Khvorostyanov\_and\_Curry\_2002](https://journals.ametsoc.org/doi/pdf/10.1175/1520-0469%282002%29059%3C1872%3ATVODAC%3E2.0.CO%3B2)
+    or
+    [Karrer_et_al_2020](https://www.essoar.org/doi/10.1002/essoar.10502128.1)
 
 ## Assumed particle size distributions
 
