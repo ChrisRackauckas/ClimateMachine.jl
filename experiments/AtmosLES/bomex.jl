@@ -431,7 +431,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
         AtmosLESConfigType,
         param_set;
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
+        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(2)),
         source = source,
         boundarycondition = (
             AtmosBC(
@@ -496,9 +496,9 @@ function main()
 
     # For a full-run, please set the timeend to 3600*6 seconds
     # For the test we set this to == 30 minutes
-    timeend = FT(1800)
-    #timeend = FT(3600 * 6)
-    CFLmax = FT(8)
+    #timeend = FT(1800)
+    timeend = FT(3600 * 6)
+    CFLmax = FT(5)
 
     driver_config = config_bomex(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
