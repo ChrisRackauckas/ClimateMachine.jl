@@ -6,7 +6,7 @@
     deposition and sublimation of cloud ice (relaxation to equilibrium)
   - autoconversion of cloud liquid water into rain and cloud ice into snow
   - accretion due to collisions between categories of condensed species
-  - evaporation and sublimation of precipitation
+  - evaporation and sublimation of hydrometeors
   - melting of snow into rain
 """
 module Microphysics
@@ -75,7 +75,7 @@ end
  - `q_sno` -  snow specific humidity
  - `ρ` - air density
 
-Returns the intercept parameter of the assumed Marshall Palmer distribution of
+Returns the intercept parameter of the assumed Marshall-Palmer distribution of
 snow particles.
 """
 function n0_sno(snow_param_set::ASPS, q_sno::FT, ρ::FT) where {FT<:Real}
@@ -93,9 +93,9 @@ end
  - `liquid_param_set` - abstract set with cloud liquid water parameters
  - `ice_param_set` - abstract set with cloud ice parameters
 
-Returnts the relaxation timescale for condensation and evaporation of
+Returns the relaxation timescale for condensation and evaporation of
 cloud liquid water or the relaxation timescale for sublimation and
-resublimation of cloud ice.
+deposition of cloud ice.
 """
 function τ_relax(liquid_param_set::ALPS)
 
@@ -104,7 +104,7 @@ function τ_relax(liquid_param_set::ALPS)
 end
 function τ_relax(ice_param_set::AIPS)
 
-    _τ_relax = τ_sub_resub(ice_param_set)
+    _τ_relax = τ_sub_dep(ice_param_set)
     return _τ_relax
 end
 
@@ -277,8 +277,8 @@ end
  - `q_sat` - PhasePartition at equilibrium
  - `q` - current PhasePartition
 
-Returns the cloud water tendency due to condensation evaporation
-or cloud ice tendency due to sublimation resublimation.
+Returns the cloud water tendency due to condensation and evaporation
+or cloud ice tendency due to sublimation and vapor deposition.
 The tendency is obtained assuming a relaxation to equilibrium with
 a constant timescale.
 """
@@ -294,9 +294,9 @@ function conv_q_vap_to_q_liq_ice(ice_param_set::AIPS,
                                  q_sat::PhasePartition{FT},
                                  q::PhasePartition{FT}) where {FT<:Real}
 
-    _τ_sub_resub::FT = τ_relax(ice_param_set)
+    _τ_sub_dep::FT = τ_relax(ice_param_set)
 
-    return (q_sat.ice - q.ice) / _τ_sub_resub
+    return (q_sat.ice - q.ice) / _τ_sub_dep
 end
 
 """
@@ -306,7 +306,7 @@ end
  - `q_liq` - liquid water specific humidity
 
 Returns the q_rai tendency due to collisions between cloud droplets
-(autoconversion) parametrized following Kessler 1995.
+(autoconversion), parametrized following Kessler 1995.
 """
 function conv_q_liq_to_q_rai(rain_param_set::ARPS, q_liq::FT) where {FT <: Real}
 
@@ -360,7 +360,7 @@ end
  - `q_pre` - rain water or snow specific humidity
  - `ρ` - rain water or snow specific humidity
 
-Returns the sink to cloud water (liquid or ice) due to collisions
+Returns the sink of cloud water (liquid or ice) due to collisions
 with precipitating water (rain or snow).
 """
 function accretion(param_set::APS,
@@ -430,7 +430,7 @@ end
 
 Returns the accretion rate between rain and snow.
 Collisions between rain and snow result in
-snow in temperatures below freezing and in rain in temperatures above freezing.
+snow at temperatures below freezing and in rain at temperatures above freezing.
 """
 function accretion_snow_rain(param_set::APS,
                              i_param_set::APrecipPS, j_param_set::APrecipPS,
