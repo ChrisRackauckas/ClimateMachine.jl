@@ -5,8 +5,8 @@ using LinearAlgebra
 # check(a, b) = all(isapprox.(a, b)) || all(a .=== b)
 check(a, b) = norm((a - b) ./ maximum(a, dims = (1, 3)), Inf)
 
-for step in 1:2
-    for substep in 1:10
+for step in 1
+    for substep in 7
         @info step substep
 
         name = @sprintf("s_%02d_%02d.jld2", step, substep)
@@ -29,7 +29,17 @@ for step in 1:2
 
         @show check(b["Qtt"], g["Qtt"])
 
-        # @show check(b["Qtt"][:,1:end-1,:], g["Qtt"][:,1:end-1,:])
+        @show check(b["Q"][:, 1:(end - 1), :], g["Q"][:, 1:(end - 1), :])
+
+        @show check(b["Qtt"][:, 1:(end - 1), :], g["Qtt"][:, 1:(end - 1), :])
+
+        @show check(b["Qtt"][:, end, :], b["Qhat"][:, end, :])
+
+        # Why is this so different?
+        @show check(g["Qtt"][:, end, :], g["Qhat"][:, end, :])
+
+        @show check(b["Qtt"][:, end, :], g["Qtt"][:, end, :])
+
         # @show check(b["Qtt"][:,1,:], g["Qtt"][:,1,:])
         # @show check(b["Qtt"][:,2,:], g["Qtt"][:,2,:])
         # @show check(b["Qtt"][:,3,:], g["Qtt"][:,3,:])
