@@ -1,16 +1,15 @@
-#!/usr/bin/env julia --project
-using ClimateMachine
-ClimateMachine.init()
+using CLIMA
+CLIMA.init()
 
-using ClimateMachine.Atmos
-using ClimateMachine.ConfigTypes
-using ClimateMachine.Diagnostics
-using ClimateMachine.DGmethods.NumericalFluxes
-using ClimateMachine.GenericCallbacks
-using ClimateMachine.ODESolvers
-using ClimateMachine.Mesh.Filters
-using ClimateMachine.MoistThermodynamics
-using ClimateMachine.VariableTemplates
+using CLIMA.Atmos
+using CLIMA.ConfigTypes
+using CLIMA.Diagnostics
+using CLIMA.DGmethods.NumericalFluxes
+using CLIMA.GenericCallbacks
+using CLIMA.ODESolvers
+using CLIMA.Mesh.Filters
+using CLIMA.MoistThermodynamics
+using CLIMA.VariableTemplates
 
 using Distributions
 using Random
@@ -24,7 +23,7 @@ using CLIMAParameters.Planet: cp_d, MSLP, grav, LH_v0
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-import ClimateMachine.DGmethods:
+import CLIMA.DGmethods:
     vars_state_conservative,
     vars_state_auxiliary,
     vars_integrals,
@@ -36,8 +35,8 @@ import ClimateMachine.DGmethods:
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
 
-import ClimateMachine.DGmethods: boundary_state!
-import ClimateMachine.Atmos: flux_second_order!
+import CLIMA.DGmethods: boundary_state!
+import CLIMA.Atmos: flux_second_order!
 
 # -------------------- Radiation Model -------------------------- #
 vars_state_conservative(::RadiationModel, FT) = @vars()
@@ -163,7 +162,7 @@ function flux_radiation!(
         FT(cp_d(atmos.param_set)) *
         m.D_subsidence *
         m.α_z *
-        cbrt(Δz_i) *
+        (Δz_i^FT(1/3)) *
         (Δz_i / 4 + m.z_i)
     F_rad =
         upward_flux_from_sfc + upward_flux_from_cloud + free_troposphere_flux
@@ -200,7 +199,7 @@ function init_dycoms!(bl, state, aux, (x, y, z), t)
     # These constants are those used by Stevens et al. (2005)
     qref = FT(9.0e-3)
     q_pt_sfc = PhasePartition(qref)
-    Rm_sfc = gas_constant_air(bl.param_set, q_pt_sfc)
+    Rm_sfc = FT(gas_constant_air(bl.param_set, q_pt_sfc))
     T_sfc = FT(290.4)
     _MSLP = FT(MSLP(bl.param_set))
     _grav = FT(grav(bl.param_set))
@@ -215,7 +214,7 @@ function init_dycoms!(bl, state, aux, (x, y, z), t)
         θ_liq = FT(289.0)
         q_tot = qref
     else
-        θ_liq = FT(297.0) + (z - zi)^(FT(1 / 3))
+        θ_liq = FT(297.0) + (z - zi) .^ (FT(1 / 3))
         q_tot = FT(1.5e-3)
     end
 
@@ -224,8 +223,8 @@ function init_dycoms!(bl, state, aux, (x, y, z), t)
     u, v, w = ugeo, vgeo, FT(0)
 
     # Perturb initial state to break symmetry and trigger turbulent convection
-    r1 = FT(rand(Uniform(-0.001, 0.001)))
-    if z <= 200.0
+    r1 = FT(rand(Uniform(FT(-0.001), FT(0.001))))
+    if z <= FT(200)
         θ_liq += r1 * θ_liq
     end
 
@@ -274,15 +273,15 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     radiation = DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1)
 
     # Sources
-    f_coriolis = FT(0.762e-4)
+    f_coriolis = FT(1.03e-4)
     u_geostrophic = FT(7.0)
     v_geostrophic = FT(-5.5)
     w_ref = FT(0)
     u_relaxation = SVector(u_geostrophic, v_geostrophic, w_ref)
     # Sponge
-    c_sponge = 1
+    c_sponge = FT(1)
     # Rayleigh damping
-    zsponge = FT(1000.0)
+    zsponge = FT(1500.0)
     rayleigh_sponge =
         RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation, 2)
     # Geostrophic forcing
@@ -291,7 +290,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
 
     # Boundary conditions
     # SGS Filter constants
-    C_smag = FT(0.21) # 0.21 for stable testing, 0.18 in practice
+    _C_smag = FT(0.21) # 0.21 for stable testing, 0.18 in practice
     C_drag = FT(0.0011)
     LHF = FT(115)
     SHF = FT(15)
@@ -309,8 +308,8 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         AtmosLESConfigType,
         param_set;
         ref_state = ref_state,
-        turbulence = Vreman{FT}(C_smag),
-        moisture = EquilMoist{FT}(maxiter = 4, tolerance = FT(1)),
+        turbulence = SmagorinskyLilly{FT}(_C_smag),
+        moisture = EquilMoist{FT}(;maxiter = 5, tolerance = FT(2)),
         radiation = radiation,
         source = source,
         boundarycondition = (
@@ -328,11 +327,17 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         init_state_conservative = ics,
     )
 
-    ode_solver = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
+    #ode_solver =
+    #    CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
+    
+    ode_solver = CLIMA.MultirateSolverType(
+        linear_model = AtmosAcousticGravityLinearModel,
+        slow_method = LSRK144NiegemannDiehlBusch,
+        fast_method = LSRK144NiegemannDiehlBusch,
+        timestep_ratio = 10,
     )
 
-    config = ClimateMachine.AtmosLESConfiguration(
+    config = CLIMA.AtmosLESConfiguration(
         "DYCOMS",
         N,
         resolution,
@@ -348,38 +353,32 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
 end
 
 function config_diagnostics(driver_config)
-    interval = "10000steps"
+    interval = "5smins"
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
+    return CLIMA.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
 
     FT = Float64
-
     # DG polynomial order
     N = 4
-
     # Domain resolution and size
     Δh = FT(40)
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
-
     xmax = FT(1000)
     ymax = FT(1000)
-    zmax = FT(1500)
-
+    zmax = FT(2500)
     t0 = FT(0)
-    timeend = FT(100)
-    Cmax = FT(1.7)     # use this for single-rate explicit LSRK144
-
+    timeend = FT(14000)
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
-    solver_config = ClimateMachine.SolverConfiguration(
+    solver_config = CLIMA.SolverConfiguration(
         t0,
         timeend,
         driver_config,
         init_on_cpu = true,
-        Courant_number = Cmax,
+        Courant_number = FT(10),
     )
     dgn_config = config_diagnostics(driver_config)
 
@@ -388,7 +387,7 @@ function main()
         nothing
     end
 
-    result = ClimateMachine.invoke!(
+    result = CLIMA.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
         user_callbacks = (cbtmarfilter,),
