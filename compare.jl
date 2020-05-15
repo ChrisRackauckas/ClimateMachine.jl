@@ -31,6 +31,10 @@ for step in 1
 
         @show check(b["Q"][:, 1:(end - 1), :], g["Q"][:, 1:(end - 1), :])
 
+        @show check(b["Qhat"][:, 1:(end - 1), :], g["Qhat"][:, 1:(end - 1), :])
+
+        @show check(b["Qhat"][:, end, :], g["Qhat"][:, end, :])
+
         @show check(b["Qtt"][:, 1:(end - 1), :], g["Qtt"][:, 1:(end - 1), :])
 
         @show check(b["Qtt"][:, end, :], b["Qhat"][:, end, :])
