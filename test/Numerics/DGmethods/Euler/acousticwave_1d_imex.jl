@@ -9,6 +9,7 @@ using ClimateMachine.DGmethods: DGModel, init_ode_state
 using ClimateMachine.DGmethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
+    CentralNumericalFluxFirstOrder,
     CentralNumericalFluxSecondOrder
 using ClimateMachine.ODESolvers
 using ClimateMachine.GeneralizedMinimalResidualSolver
