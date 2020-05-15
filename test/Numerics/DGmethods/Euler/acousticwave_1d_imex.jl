@@ -133,7 +133,7 @@ function run(
     dg = DGModel(
         model,
         grid,
-        RusanovNumericalFlux(),
+        CentralNumericalFluxFirstOrder(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
@@ -141,7 +141,7 @@ function run(
     lineardg = DGModel(
         linearmodel,
         grid,
-        RusanovNumericalFlux(),
+        CentralNumericalFluxFirstOrder(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
         direction = VerticalDirection(),
