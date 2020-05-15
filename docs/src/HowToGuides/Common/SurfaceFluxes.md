@@ -53,6 +53,11 @@ Recreation of Figure 4(b) from Byun (1990)
 
 ## `Nishizawa2018`
 
+```math
+L_{M.O.} = \frac{-u_{*}^3}\overbar{\theta}}{\kappa g \overbar{(w^{\prime}\theta^{\prime})_{s}}}
+```
+
+
 ### Plots
 ```@example
 using ClimateMachine.SurfaceFluxes.Nishizawa2018
