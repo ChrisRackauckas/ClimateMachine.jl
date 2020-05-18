@@ -160,7 +160,12 @@ function run(
         Filters.apply!(Q, 1, grid, TMARFilter())
     end
 
-    mkpath(vtkdir)
+    # create output directory on first rank of communicator
+    if MPI.rank(mpicomm) == 0
+        mkpath(vtkdir)
+    end
+    MPI.Barrier(mpicom)
+
     vtkstep = 0
     # output initial step
     do_output(mpicomm, vtkdir, vtkstep, dg, Q, model, "nonnegative")
@@ -229,7 +234,10 @@ let
     CFL = 1
     dt = CFL * dx / maxvelocity
 
-    vtkdir = "vtk_nonnegative"
+    vtkdir = abspath(joinpath(
+        ClimateMachine.Settings.output_path,
+        "vtk_nonnegative",
+    ))
     outputtime = 0.0625
     dt = outputtime / ceil(Int64, outputtime / dt)
 

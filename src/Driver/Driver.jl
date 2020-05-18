@@ -253,13 +253,16 @@ function init(; disable_gpu = false, arg_settings = nothing)
     _init_array(atyp)
     Settings.array_type = atyp
 
-    # create the output directory if needed
-    if Settings.diagnostics !== "never" || Settings.vtk !== "never"
-        mkpath(Settings.output_dir)
+    # create the output directory if needed on delegated rank
+    if MPI.Comm_rank(MPI.COMM_WORLD) == 0
+        if Settings.diagnostics !== "never" || Settings.vtk !== "never"
+            mkpath(Settings.output_dir)
+        end
+        if Settings.checkpoint !== "never" || Settings.checkpoint_at_end
+            mkpath(Settings.checkpoint_dir)
+        end
     end
-    if Settings.checkpoint !== "never" || Settings.checkpoint_at_end
-        mkpath(Settings.checkpoint_dir)
-    end
+    MPI.Barrier(MPI.COMM_WORLD)
 
     # set up logging
     loglevel = Settings.log_level == "DEBUG" ? Logging.Debug :
