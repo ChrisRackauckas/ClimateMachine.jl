@@ -26,6 +26,7 @@
 # \frac{∂ ρa}{∂ t} = - ∇ ⋅ (ρau)
 # \frac{∂ ρau}{∂ t} = - ∇ ⋅ (-μa ∇u) - ∇ ⋅ (ρau u')
 # \frac{∂ ρacT}{∂ t} = - ∇ ⋅ (-αa ∇ρcT) - ∇ ⋅ (u ρacT)
+# \frac{∂ ρacT}{∂ t} = - ∇ ⋅ (-αρac ∇T) - ∇ ⋅ (u ρacT)
 
 # z_min: ρ = 1
 # z_min: ρu = 0
@@ -164,18 +165,18 @@ Base.@kwdef struct SingleStack{FT, N} <: BalanceLaw
     T_bottom::FT = 300.0
     "Top flux (α∇ρcT) at top boundary (Neumann boundary conditions)"
     flux_top::FT = 0.0
-    # add reference state
-    ref_state::RS = HydrostaticState(                   # quickly added at end
-        LinearTemperatureProfile(                       # quickly added at end
-            FT(200),                                    # quickly added at end
-            FT(280),                                    # quickly added at end
-            FT(grav(param_set)) / FT(cp_d(param_set)),  # quickly added at end
-        ),                                              # quickly added at end
-        FT(0),                                          # quickly added at end
-    ),                                                  # quickly added at end
+    # # add reference state
+    # ref_state::RS = HydrostaticState(                   # quickly added at end
+    #     LinearTemperatureProfile(                       # quickly added at end
+    #         FT(200),                                    # quickly added at end
+    #         FT(280),                                    # quickly added at end
+    #         FT(grav(param_set)) / FT(cp_d(param_set)),  # quickly added at end
+    #     ),                                              # quickly added at end
+    #     FT(0),                                          # quickly added at end
+    # ),                                                  # quickly added at end
 end
 
-N = 1
+N = 2
 # Create an instance of the `SingleStack`:
 m = SingleStack{FT, N}();
 
@@ -191,19 +192,18 @@ m = SingleStack{FT, N}();
 
 # Specify auxiliary variables for `SingleStack`
 
-vars_state_auxiliary(::Updraft, FT) = @vars(T::FT, a::FT)
+vars_state_auxiliary(::Updraft, FT) = @vars(T::FT)
+function vars_state_auxiliary(m::NTuple{N,Updraft}, FT) where {N}
+    return Tuple{ntuple(i->vars_state_auxiliary(m[i], FT), N)...}
+end
 
 function vars_state_auxiliary(::Environment, FT)
-    @vars(T::FT, a::FT,
-    ρa::FT,
-    ρau::SVector{3,FT},
-    ρacT::FT
-    )
+    @vars(T::FT)
 end
-# test/Driver/single_stack_test.jl
+
 function vars_state_auxiliary(m::EDMF, FT)
     @vars(environment::vars_state_auxiliary(m.environment, FT),
-          updraft::vars_state_auxiliary(m.updraft[1], FT)
+          updraft::vars_state_auxiliary(m.updraft, FT)
           );
 end
 
@@ -211,7 +211,7 @@ function vars_state_auxiliary(m::SingleStack, FT)
     @vars(z::FT,
           T::FT,
           edmf::vars_state_auxiliary(m.edmf, FT),
-          ref_state::vars_state_auxiliary(m.ref_state, FT) # quickly added at end
+          # ref_state::vars_state_auxiliary(m.ref_state, FT) # quickly added at end
           );
 end
 
@@ -223,11 +223,15 @@ function vars_state_conservative(::Updraft, FT)
           ρacT::FT,
           )
 end
+function vars_state_conservative(m::NTuple{N,Updraft}, FT) where {N}
+    return Tuple{ntuple(i->vars_state_conservative(m[i], FT), N)...}
+end
+
 vars_state_conservative(::Environment, FT) = @vars()
 
 function vars_state_conservative(m::EDMF, FT)
     @vars(environment::vars_state_conservative(m.environment, FT),
-          updraft::vars_state_conservative(m.updraft[1], FT)
+          updraft::vars_state_conservative(m.updraft, FT)
           );
 end
 
@@ -243,14 +247,15 @@ function vars_state_gradient(::Updraft, FT)
           u::SVector{3, FT},
           )
 end
-function vars_state_gradient(::Environment, FT)
-    @vars(ρcT::FT,
-          u::SVector{3, FT})
+function vars_state_gradient(m::NTuple{N,Updraft}, FT) where {N}
+    return Tuple{ntuple(i->vars_state_gradient(m[i], FT), N)...}
 end
+
+vars_state_gradient(::Environment, FT) = @vars()
 
 function vars_state_gradient(m::EDMF, FT)
     @vars(environment::vars_state_gradient(m.environment, FT),
-          updraft::vars_state_gradient(m.updraft[1], FT)
+          updraft::vars_state_gradient(m.updraft, FT)
           );
 end
 
@@ -265,13 +270,15 @@ function vars_state_gradient_flux(::Updraft, FT)
           μa∇u::SMatrix{3, 3, FT, 9},
           )
 end
-function vars_state_gradient_flux(::Environment, FT)
-    @vars()
+function vars_state_gradient_flux(m::NTuple{N,Updraft}, FT) where {N}
+    return Tuple{ntuple(i->vars_state_gradient_flux(m[i], FT), N)...}
 end
+
+vars_state_gradient_flux(::Environment, FT) = @vars()
 
 function vars_state_gradient_flux(m::EDMF, FT)
     @vars(environment::vars_state_gradient_flux(m.environment, FT),
-          updraft::vars_state_gradient_flux(m.updraft[1], FT)
+          updraft::vars_state_gradient_flux(m.updraft, FT)
           );
 end
 
@@ -288,43 +295,30 @@ end
 # - this method is only called at `t=0`
 # - `aux.z` and `aux.T` are available here because we've specified `z` and `T`
 # in `vars_state_auxiliary`
-function init_state_auxiliary!(m::SingleStack, aux::Vars, geom::LocalGeometry)
+function init_state_auxiliary!(m::SingleStack{FT,N}, aux::Vars, geom::LocalGeometry) where {FT,N}
     aux.z = geom.coord[3]
     aux.T = m.initialT
 
-    # ------------------ quickly added at end
-    T, p = m.temperatureprofile(atmos.orientation, atmos.param_set, aux)
-    FT = eltype(aux)
-    _R_d::FT = R_d(atmos.param_set)
-    aux.ref_state.T = T
-    aux.ref_state.p = p
-    aux.ref_state.ρ = ρ = p / (_R_d * T)
-    # -------------------
-
-    z = aux.z
-    ε1 = rand(Normal(0, m.σ))
-    ε2 = rand(Normal(0, m.σ))
-    ρ = m.ρ_IC
-    ρu = 1 - 4*(z - m.zmax/2)^2 + ε1
-    ρv = 1 - 4*(z - m.zmax/2)^2 + ε2
-    ρw = 0
+    # # ------------------ quickly added at end
+    # T, p = m.temperatureprofile(atmos.orientation, atmos.param_set, aux)
+    # FT = eltype(aux)
+    # _R_d::FT = R_d(atmos.param_set)
+    # aux.ref_state.T = T
+    # aux.ref_state.p = p
+    # aux.ref_state.ρ = ρ = p / (_R_d * T)
+    # # -------------------
 
     # Alias convention:
     gm_a = aux
     en_a = aux.edmf.environment
     up_a = aux.edmf.updraft
-    # gm = state
-    # en = state.edmf.environment
-    # up = state.edmf.updraft
+    gm_a.T = m.initialT
 
-    up_a.T = gm_a.T
+    for i in 1:N
+        up_a[i].T = gm_a.T
+    end
 
     en_a.T = gm_a.T
-    a_env = 1 - m.a_updraft_initial
-    en_a.a = a_env
-    en_a.ρa = ρ*a_env
-    en_a.ρau = SVector(ρu*a_env, ρv*a_env, ρw*a_env)
-    en_a.ρacT = ρ*m.c*m.initialT*a_env
 end;
 
 # Specify the initial values in `state::Vars`. Note that
@@ -332,27 +326,27 @@ end;
 # - `state.ρcT` is available here because we've specified `ρcT` in
 # `vars_state_conservative`
 function init_state_conservative!(
-    m::SingleStack,
+    m::SingleStack{FT,N},
     state::Vars,
     aux::Vars,
     coords,
     t::Real,
-)
+) where {FT,N}
     # Alias convention:
     gm_a = aux
-    en_a = aux.edmf.environment
-    up_a = aux.edmf.updraft
     gm = state
     en = state.edmf.environment
     up = state.edmf.updraft
 
-    gm.ρ = aux.ref_state.ρ # quickly added at end
+    # gm.ρ = aux.ref_state.ρ # quickly added at end
 
     z = aux.z
     ε1 = rand(Normal(0, m.σ))
     ε2 = rand(Normal(0, m.σ))
     gm.ρ = 1
     ρ = gm.ρ
+    ρinv = 1/ρ
+
     ρu = 1 - 4*(z - m.zmax/2)^2 + ε1
     ρv = 1 - 4*(z - m.zmax/2)^2 + ε2
     ρw = 0
@@ -360,12 +354,12 @@ function init_state_conservative!(
 
     gm.ρcT = ρ*m.c * gm_a.T
 
-    a_up = m.a_updraft_initial
-    up.ρa = ρ*a_up
-    up.ρau = SVector(ρu*a_up, ρv*a_up, ρw*a_up)
-    up.ρacT = gm.ρcT*a_up
-    up_a.a = up.ρa/ρ
-    en_a.a = 1 - up_a.a
+    a_up = m.a_updraft_initial/FT(N)
+    for i in 1:N
+        up[i].ρa = ρ * a_up
+        up[i].ρau = gm.ρu * a_up
+        up[i].ρacT = gm.ρcT * a_up
+    end
 end;
 
 # The remaining methods, defined in this section, are called at every
@@ -403,23 +397,15 @@ function single_stack_nodal_update_aux!(
     en = state.edmf.environment
     up = state.edmf.updraft
     ρ = gm.ρ
+    ρinv = 1/gm.ρ
 
-    gm_a.T        = gm.ρcT/(ρ*m.c)
-    up_a.T        = up.ρacT/(m.c*up.ρa)
-    up_a.a        = up.ρa/ρ
-    en_a.a        = 1 - up_a.a
+    gm_a.T = gm.ρcT*ρinv/m.c
+    for i in 1:N
+        up_a[i].T = up[i].ρacT/(m.c*up[i].ρa)
+    end
 
-    # en_a.T = gm.T - sum([ up_a[i].T*up[i].ρa/ρ for i in 1:N])
-    en_a.T = gm_a.T - up_a.T*up.ρa/ρ
-    a_env  = en_a.a
-
-    # en_a.a    = 1 - sum([ up[i].ρa/ρ for i in 1:N])
-    en_a.a    = 1 - up.ρa/ρ
-    en_a.ρa   = ρ*a_env
-    # en_a.ρau  = gm.ρu .- sum([ up[i].ρau*up[i].ρa/ρ for i in 1:N])
-    en_a.ρau  = gm.ρu .- up.ρau*up.ρa/ρ
-    en_a.ρacT = ρ*m.c*m.initialT*a_env
-
+    a_env  = 1 - sum([up[i].ρa*ρinv for i in 1:N])
+    en_a.T = (gm.T - sum([ up_a[i].T*up[i].ρa*ρinv for i in 1:N]))/a_env
 end;
 
 # Since we have second-order fluxes, we must tell `ClimateMachine` to compute
@@ -427,12 +413,12 @@ end;
 #  - `transform.ρcT` is available here because we've specified `ρcT` in
 #  `vars_state_gradient`
 function compute_gradient_argument!(
-    m::SingleStack,
+    m::SingleStack{FT,N},
     transform::Vars,
     state::Vars,
     aux::Vars,
     t::Real,
-)
+) where {FT, N}
     # Alias convention:
     gm_t = transform
     en_t = transform.edmf.environment
@@ -444,12 +430,12 @@ function compute_gradient_argument!(
     gm_t.ρcT = gm.ρcT
     gm_t.u = gm.ρu/gm.ρ
     ρ = gm.ρ
-    a_up = up.ρa/ρ
-    a_env = 1 - sum(a_up)
-    en_t.ρcT = en.ρacT/a_env
-    en_t.u = en.ρau/(a_env*ρ)
-    up_t.ρcT = up.ρacT/a_up
-    up_t.u = up.ρau/up.ρa
+
+    for i in 1:N
+        a_up = up[i].ρa/ρ
+        up_t[i].ρcT = up[i].ρacT/a_up
+        up_t[i].u = up[i].ρau/up[i].ρa
+    end
 end;
 
 # Specify where in `diffusive::Vars` to store the computed gradient from
@@ -459,75 +445,62 @@ end;
 #  - `∇transform.ρcT` is available here because we've specified `ρcT`  in
 #  `vars_state_gradient`
 function compute_gradient_flux!(
-    m::SingleStack,
+    m::SingleStack{FT,N},
     diffusive::Vars,
     ∇transform::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
-)
+) where {FT,N}
     # Alias convention:
     gm_d = diffusive
-    en_d = diffusive.edmf.environment
     up_d = diffusive.edmf.updraft
     gm_∇t = ∇transform
-    en_∇t = ∇transform.edmf.environment
     up_∇t = ∇transform.edmf.updraft
     gm = state
-    en = state.edmf.environment
     up = state.edmf.updraft
 
     gm_d.α∇ρcT = -m.α * gm_∇t.ρcT
     gm_d.μ∇u = -m.μ * gm_∇t.u
+    ρinv = 1/gm.ρ
 
-    up_a = up.ρa/gm.ρ
-    up_d.α∇ρcT = -m.α * up_a * up_∇t.ρcT
-    up_d.μ∇u = -m.μ * up_a * up_∇t.u
-
-    en_a = 1 - up_a
-    en_d.α∇ρcT = -m.α * en_a * en_∇t.ρcT
-    en_d.μ∇u = -m.μ * en_a * en_∇t.u
+    for i in 1:N
+        up_a = up[i].ρa*ρinv
+        up_d[i].α∇ρcT = -m.α * up_a * up_∇t[i].ρcT
+        up_d[i].μ∇u = -m.μ * up_a * up_∇t[i].u
+    end
 end;
 
 # We have no sources, nor non-diffusive fluxes.
 function source!(m::SingleStack, _...) end;
 function flux_first_order!(
-    m::SingleStack,
+    m::SingleStack{FT,N},
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
-)
+) where {FT,N}
 
     # Alias convention:
     gm = state
-    en = state.edmf.environment
     up = state.edmf.updraft
     gm_f = flux
-    en_f = flux.edmf.environment
     up_f = flux.edmf.updraft
-    gm_a = aux
-    en_a = aux.edmf.environment
-    up_a = aux.edmf.updraft
-
 
     # gm
     gm_f.ρ = gm.ρu
     u = gm.ρu / gm.ρ
     gm_f.ρu = gm.ρu * u'
     gm_f.ρcT = u * gm.ρcT
-
-    # en
-    en_f.ρ = en.ρau
-    u = en.ρau / ((1 - up_a.a)*gm.ρ)
-    en_f.ρau = en.ρau * u'
-    en_f.ρacT = u * en.ρacT
+    ρinv = 1/gm.ρ
 
     # up
-    up_f.ρ = up.ρau
-    u = up.ρau / (up_a.a*gm.ρ)
-    up_f.ρau = up.ρau * u'
-    up_f.ρacT = u * up.ρacT
+    for i in 1:N
+        up_f[i].ρ = up[i].ρau
+        u = up[i].ρau / up[i].ρa
+        up_f[i].ρau = up[i].ρau * u'
+        up_f[i].ρacT = u * up[i].ρacT
+    end
 
 end;
 
@@ -536,30 +509,27 @@ end;
 # - `diffusive.α∇ρcT` is available here because we've specified `α∇ρcT` in
 # `vars_state_gradient_flux`
 function flux_second_order!(
-    m::SingleStack,
+    m::SingleStack{FT,N},
     flux::Grad,
     state::Vars,
     diffusive::Vars,
     hyperdiffusive::Vars,
     aux::Vars,
     t::Real,
-)
+) where {FT,N}
     # Alias convention:
     gm_f = flux
-    en_f = flux.edmf.environment
     up_f = flux.edmf.updraft
     gm_d = diffusive
-    en_d = diffusive.edmf.environment
     up_d = diffusive.edmf.updraft
 
     gm_f.ρcT += gm_d.α∇ρcT
     gm_f.ρu += gm_d.μ∇u
 
-    en_f.ρacT += en_d.αa∇ρcT
-    en_f.ρau += en_d.μa∇u
-
-    up_f.ρacT += up_d.αa∇ρcT
-    up_f.ρau += up_d.μa∇u
+    for i in 1:N
+        up_f[i].ρacT += up_d[i].αa∇ρcT
+        up_f[i].ρau += up_d[i].μa∇u
+    end
 
 end;
 
@@ -573,7 +543,7 @@ end;
 # The boundary conditions for `ρcT` (first order unknown)
 function boundary_state!(
     nf,
-    m::SingleStack,
+    m::SingleStack{FT,N},
     state⁺::Vars,
     aux⁺::Vars,
     n⁻,
@@ -582,32 +552,28 @@ function boundary_state!(
     bctype,
     t,
     _...,
-)
+) where {FT,N}
     gm = state⁺
-    en = state⁺.edmf.environment
     up = state⁺.edmf.updraft
     if bctype == 1 # bottom
         gm.ρ = 1
         gm.ρu = SVector(0,0,0)
         gm.ρcT = gm.ρ*m.c * m.T_bottom
 
-        en.ρa = 1 - m.a_updraft_initial
-        en.ρau = SVector(0,0,0)
-        en.ρacT = gm.ρ*m.c * m.T_bottom
-
-        up.ρa = m.a_updraft_initial
-        up.ρau = SVector(0,0,0)
-        up.ρacT = gm.ρ*m.c * m.T_bottom
+        for i in 1:N
+            up[i].ρa = m.a_updraft_initial/FT(N)*gm.ρ
+            up[i].ρau = SVector(0,0,0)
+            up[i].ρacT = gm.ρ*m.c * m.T_bottom
+        end
 
     elseif bctype == 2 # top
         gm.ρ = 1
         gm.ρu = SVector(0,0,0)
 
-        en.ρa = 1 - m.a_updraft_initial
-        en.ρau = SVector(0,0,0)
-
-        up.ρa = m.a_updraft_initial
-        up.ρau = SVector(0,0,0)
+        for i in 1:N
+            up[i].ρa = m.a_updraft_initial/FT(N)*gm.ρ
+            up[i].ρau = SVector(0,0,0)
+        end
 
     end
 end;
@@ -616,7 +582,7 @@ end;
 # unknowns
 function boundary_state!(
     nf,
-    m::SingleStack,
+    m::SingleStack{FT,N},
     state⁺::Vars,
     diff⁺::Vars,
     aux⁺::Vars,
@@ -627,37 +593,32 @@ function boundary_state!(
     bctype,
     t,
     _...,
-)
+) where {FT,N}
     gm = state⁺
-    en = state⁺.edmf.environment
     up = state⁺.edmf.updraft
     gm_d = diff⁺
-    en_d = diff⁺.edmf.environment
     up_d = diff⁺.edmf.updraft
     if bctype == 1 # bottom
         gm.ρ = 1
         gm.ρu = SVector(0,0,0)
         gm.ρcT = gm.ρ*m.c * m.T_bottom
 
-        en.ρa = 1 - m.a_updraft_initial
-        en.ρau = SVector(0,0,0)
-        en.ρacT = gm.ρ*m.c * m.T_bottom
-
-        up.ρa = m.a_updraft_initial
-        up.ρau = SVector(0,0,0)
-        up.ρacT = gm.ρ*m.c * m.T_bottom
+        for i in 1:N
+            up[i].ρa = m.a_updraft_initial/FT(N)*gm.ρ
+            up[i].ρau = SVector(0,0,0)
+            up[i].ρacT = gm.ρ*m.c * m.T_bottom
+        end
 
     elseif bctype == 2 # top
         gm.ρ = 1
         gm.ρu = SVector(0,0,0)
-        en.ρa = 1 - m.a_updraft_initial
-        en.ρau = SVector(0,0,0)
-        up.ρa = m.a_updraft_initial
-        up.ρau = SVector(0,0,0)
-
         gm_d.α∇ρcT = -n⁻ * m.flux_top
-        en_d.αa∇ρcT = -n⁻ * m.flux_top
-        up_d.αa∇ρcT = -n⁻ * m.flux_top
+
+        for i in 1:N
+            up[i].ρa = m.a_updraft_initial/FT(N)*gm.ρ
+            up[i].ρau = SVector(0,0,0)
+            up_d[i].αa∇ρcT = -n⁻ * m.flux_top
+        end
     end
 end;
 
