@@ -32,3 +32,5 @@ PackageCompiler.create_sysimage(
         "isentropicvortex.jl",
     ),
 )
+
+@info "Created system image object file: '$(abspath(sysimage_path))'"

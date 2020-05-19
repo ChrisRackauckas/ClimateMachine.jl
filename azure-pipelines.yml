@@ -35,8 +35,8 @@ jobs:
     displayName: 'Linux - Build project system image'
   - bash: |
       set -o xtrace
-      ./julia-$(JULIA_VERSION)/bin/julia --project=@. -J ClimateMachine.so -e 'using InteractiveUtils; versioninfo()'
-      ./julia-$(JULIA_VERSION)/bin/julia --project=@. -J ClimateMachine.so -e 'using Pkg; Pkg.test()'
+      ./julia-$(JULIA_VERSION)/bin/julia --project=@. -J .dev/systemimage/ClimateMachine.so -e 'using InteractiveUtils; versioninfo()'
+      ./julia-$(JULIA_VERSION)/bin/julia --project=@. -J .dev/systemimage/ClimateMachine.so -e 'using Pkg; Pkg.test()'
     displayName: 'Linux - Run the tests'
 
 - job: macOS
@@ -69,8 +69,8 @@ jobs:
     displayName: 'macOS - Build project system image'
   - bash: |
       set -o xtrace
-      ./julia-$(JULIA_VERSION)/bin/julia --project=@. -J ClimateMachine.so -e 'using InteractiveUtils; versioninfo()'
-      ./julia-$(JULIA_VERSION)/bin/julia --project=@. -J ClimateMachine.so -e 'using Pkg; Pkg.test()'
+      ./julia-$(JULIA_VERSION)/bin/julia --project=@. -J .dev/systemimage/ClimateMachine.so -e 'using InteractiveUtils; versioninfo()'
+      ./julia-$(JULIA_VERSION)/bin/julia --project=@. -J .dev/systemimage/ClimateMachine.so -e 'using Pkg; Pkg.test()'
     env:
       MPICH_INTERFACE_HOSTNAME: localhost
     displayName: 'macOS - Run the tests'
@@ -105,6 +105,6 @@ jobs:
     displayName: 'Windows - Build project system image'
   - powershell: |
       Set-PSDebug -Trace 1
-      C:\julia-$(JULIA_VERSION)\bin\julia.exe --project=@. -J ClimateMachine.so -e "using InteractiveUtils; versioninfo()"
-      C:\julia-$(JULIA_VERSION)\bin\julia.exe --project=@. -J ClimateMachine.so -e "using Pkg; Pkg.test()"
+      C:\julia-$(JULIA_VERSION)\bin\julia.exe --project=@. -J .dev\systemimage\ClimateMachine.so -e "using InteractiveUtils; versioninfo()"
+      C:\julia-$(JULIA_VERSION)\bin\julia.exe --project=@. -J .dev\systemimage\ClimateMachine.so -e "using Pkg; Pkg.test()"
     displayName: 'Windows - Run the tests'
