@@ -70,7 +70,18 @@ end
 vars_state_auxiliary(m::HydrostaticState, FT) =
     @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT)
 
+"""
+    atmos_init_aux!
 
+Populates reference state with
+ - `ρ` density
+ - `ρe` total energy
+ - `ρq_tot` total specific humidity
+given the
+ - virtual temperature profile
+ - pressure
+ - relative humidity
+"""
 function atmos_init_aux!(
     m::HydrostaticState{P, F},
     atmos::AtmosModel,
@@ -89,14 +100,12 @@ function atmos_init_aux!(
     T = temperature_from_virtual_temperature(atmos.param_set, T_virt, RH, p)
     # We evaluate the saturation vapor pressure, approximating
     # temperature by virtual temperature
-    q_vap_sat = vapor_specific_humidity(atmos.param_set, T, ρ)
+    q_tot = vapor_specific_humidity(atmos.param_set, T, p, RH)
 
-    ρq_tot = ρ * RH * q_vap_sat
-    aux.ref_state.ρq_tot = ρq_tot
+    aux.ref_state.ρq_tot = ρ * q_tot
 
-    q_pt = PhasePartition(ρq_tot)
-    R_m = gas_constant_air(atmos.param_set, q_pt)
-    T = T_virt * R_m / _R_d
+    q_pt = PhasePartition(aux.ref_state.ρq_tot)
+
     aux.ref_state.T = T
     aux.ref_state.ρe = ρ * internal_energy(atmos.param_set, T, q_pt)
 
