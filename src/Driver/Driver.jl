@@ -154,7 +154,7 @@ function parse_commandline(custom_settings)
         help = "directory for output data"
         metavar = "<path>"
         arg_type = String
-        default = "output"
+        default = get(ENV, "CLIMATEMACHINE_OUTPUT_DIR", "output")
         "--integration-testing"
         help = "enable integration testing"
         action = :store_true
