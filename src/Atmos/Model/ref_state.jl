@@ -85,11 +85,13 @@ function atmos_init_aux!(
     ρ = p / (_R_d * T_virt)
     aux.ref_state.ρ = ρ
     aux.ref_state.p = p
+    RH = relative_humidity(m)
+    T = temperature_from_virtual_temperature(atmos.param_set, T_virt, RH, p)
     # We evaluate the saturation vapor pressure, approximating
     # temperature by virtual temperature
-    q_vap_sat = q_vap_saturation(atmos.param_set, T_virt, ρ)
+    q_vap_sat = vapor_specific_humidity(atmos.param_set, T, ρ)
 
-    ρq_tot = ρ * relative_humidity(m) * q_vap_sat
+    ρq_tot = ρ * RH * q_vap_sat
     aux.ref_state.ρq_tot = ρq_tot
 
     q_pt = PhasePartition(ρq_tot)
@@ -223,7 +225,8 @@ function (profile::DecayingTemperatureProfile)(
     _MSLP::FT = MSLP(param_set)
 
     ΔTv′ = ΔTv / profile.T_virt_surf
-    p = -z - profile.H_t * ΔTv′ * log(cosh(z / profile.H_t) - atanh(ΔTv′))
+    z′ = z/profile.H_t
+    p = - profile.H_t*(z′ + ΔTv′ * (log(1 - ΔTv′*tanh(z′)) - log(1+tanh(z′)) + z′))
     p /= profile.H_t * (1 - ΔTv′^2)
     p = _MSLP * exp(p)
     return (Tv, p)
