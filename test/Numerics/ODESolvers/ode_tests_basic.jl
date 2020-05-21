@@ -139,7 +139,11 @@ errors = similar(dts)
                     end
                     rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
                     if variant isa LowStorageVariant && split_explicit_implicit
-                        expected_order = 2
+                        if method === ARK1ForwardBackwardEuler
+                            expected_order = 1
+                        else
+                            expected_order = 2
+                        end
                     else
                         expected_order = order
                     end
