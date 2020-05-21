@@ -352,6 +352,7 @@ function main()
     # output for paraview
 
     # initialize base output prefix directory from rank 0
+    vtkdir = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk"))
     if MPI.Comm_rank(mpicomm) == 0
         mkpath(vtkdir)
     end
