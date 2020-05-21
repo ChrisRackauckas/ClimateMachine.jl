@@ -90,6 +90,19 @@ using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 
+import ClimateMachine.VariableTemplates: Vars, Grad
+@inline function Base.getindex(v::Vars{NTuple{N,T},A,offset}, i) where {N,T,A,offset}
+  # 1 <= i <= N
+  array = parent(v)
+  return Vars{T, A, offset + (i-1)*varsize(T)}(array)
+end
+@inline function Base.getindex(v::Grad{NTuple{N,T},A,offset}, i) where {N,T,A,offset}
+  # 1 <= i <= N
+  array = parent(v)
+  return Grad{T, A, offset + (i-1)*varsize(T)}(array)
+end
+
+
 #  - import necessary ClimateMachine modules: (`import`ing enables us to
 #  provide implementations of these structs/methods)
 import ClimateMachine.DGmethods:
@@ -134,9 +147,13 @@ end
 Base.@kwdef struct Updraft{FT} <: BalanceLaw
 end
 
+Base.@kwdef struct EntrainmentDetrainment{FT} <: BalanceLaw
+end
+
 Base.@kwdef struct EDMF{FT, N} <: BalanceLaw
     updraft::NTuple{N,Updraft{FT}} = ntuple(i->Updraft{FT}(), N)
     environment::Environment{FT} = Environment{FT}()
+    entr_detr::EntrainmentDetrainment{FT} = EntrainmentDetrainment{FT}()
 end
 
 
@@ -210,6 +227,9 @@ end
 function vars_state_auxiliary(m::SingleStack, FT)
     @vars(z::FT,
           T::FT,
+          T_ref::FT,
+          ρ_ref::FT,
+          p_ref::FT,
           edmf::vars_state_auxiliary(m.edmf, FT),
           # ref_state::vars_state_auxiliary(m.ref_state, FT) # quickly added at end
           );
@@ -300,6 +320,7 @@ function init_state_auxiliary!(m::SingleStack{FT,N}, aux::Vars, geom::LocalGeome
     aux.T = m.initialT
 
     # # ------------------ quickly added at end
+    # For analytic reference profiles:
     # T, p = m.temperatureprofile(atmos.orientation, atmos.param_set, aux)
     # FT = eltype(aux)
     # _R_d::FT = R_d(atmos.param_set)
@@ -375,6 +396,12 @@ function update_auxiliary_state!(
     t::Real,
     elems::UnitRange,
 )
+
+    # For non-analytic reference profiles:
+    # if num_integrals(m, FT) > 0
+    #     indefinite_stack_integral!(dg, m, Q, state_auxiliary, FT(0), elems)
+    #     reverse_indefinite_stack_integral!(dg, m, Q, state_auxiliary, FT(0), elems)
+    # end
     nodal_update_auxiliary_state!(single_stack_nodal_update_aux!, dg, m, Q, t, elems)
     return true # TODO: remove return true
 end;
@@ -405,7 +432,11 @@ function single_stack_nodal_update_aux!(
     end
 
     a_env  = 1 - sum([up[i].ρa*ρinv for i in 1:N])
-    en_a.T = (gm.T - sum([ up_a[i].T*up[i].ρa*ρinv for i in 1:N]))/a_env
+    # @show en_a.T
+    # @show gm_a.T
+    # @show up_a[1].T
+    # @show up_a[2].T
+    en_a.T = (gm_a.T - sum([ up_a[i].T*up[i].ρa*ρinv for i in 1:N]))/a_env
 end;
 
 # Since we have second-order fluxes, we must tell `ClimateMachine` to compute
@@ -466,13 +497,32 @@ function compute_gradient_flux!(
 
     for i in 1:N
         up_a = up[i].ρa*ρinv
-        up_d[i].α∇ρcT = -m.α * up_a * up_∇t[i].ρcT
-        up_d[i].μ∇u = -m.μ * up_a * up_∇t[i].u
+        up_d[i].αa∇ρcT = -m.α * up_a * up_∇t[i].ρcT
+        up_d[i].μa∇u = -m.μ * up_a * up_∇t[i].u
     end
 end;
 
 # We have no sources, nor non-diffusive fluxes.
-function source!(m::SingleStack, _...) end;
+function source!(
+    m::SingleStack{FT, N},
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+) where {FT, N}
+
+    ε = source!(m, m.edmf.entr_detr, source, state, diffusive, aux, t, direction)
+    # source!(m, m.edmf.mix_len, source, state, diffusive, aux, t, direction, ε)
+    # source!(m, m.edmf.pressure, source, state, diffusive, aux, t, direction)
+
+end;
+
+include(joinpath("closures", "entr_detr.jl"))
+# include(joinpath("closures", "pressure.jl"))
+# include(joinpath("closures", "mix_len.jl"))
+
 function flux_first_order!(
     m::SingleStack{FT,N},
     flux::Grad,
@@ -496,7 +546,7 @@ function flux_first_order!(
 
     # up
     for i in 1:N
-        up_f[i].ρ = up[i].ρau
+        up_f[i].ρa = up[i].ρau
         u = up[i].ρau / up[i].ρa
         up_f[i].ρau = up[i].ρau * u'
         up_f[i].ρacT = u * up[i].ρacT
@@ -628,7 +678,7 @@ end;
 N_poly = 5;
 
 # Specify the number of vertical elements
-nelem_vert = 20;
+nelem_vert = 10;
 
 # Specify the domain height
 zmax = m.zmax;
@@ -681,41 +731,41 @@ z_scale = 100 # convert from meters to cm
 z_key = "z"
 z_label = "z [cm]"
 z = get_z(driver_config.grid, z_scale)
-state_vars = get_vars_from_stack(
-    driver_config.grid,
-    solver_config.Q,
-    m,
-    vars_state_conservative,
-);
-aux_vars = get_vars_from_stack(
-    driver_config.grid,
-    solver_config.dg.state_auxiliary,
-    m,
-    vars_state_auxiliary;
-    exclude = [z_key]
-);
-all_vars = OrderedDict(state_vars..., aux_vars...);
-@show keys(all_vars)
-export_plot_snapshot(
-    z,
-    all_vars,
-    ("ρcT", "edmf.environment.ρacT", "edmf.updraft.ρacT"),
-    joinpath(output_dir, "initial_energy.png"),
-    z_label,
-);
-# ![](initial_energy.png)
+# state_vars = get_vars_from_stack(
+#     driver_config.grid,
+#     solver_config.Q,
+#     m,
+#     vars_state_conservative,
+# );
+# aux_vars = get_vars_from_stack(
+#     driver_config.grid,
+#     solver_config.dg.state_auxiliary,
+#     m,
+#     vars_state_auxiliary;
+#     exclude = [z_key]
+# );
+# all_vars = OrderedDict(state_vars..., aux_vars...);
+# @show keys(all_vars)
+# export_plot_snapshot(
+#     z,
+#     all_vars,
+#     ("ρcT", "edmf.environment.ρacT", "edmf.updraft.ρacT"),
+#     joinpath(output_dir, "initial_energy.png"),
+#     z_label,
+# );
+# # ![](initial_energy.png)
 
-export_plot_snapshot(
-    z,
-    all_vars,
-    (
-     "ρu[1]",
-     "edmf.environment.ρau[1]",
-     "edmf.updraft.ρau[1]"
-     ),
-    joinpath(output_dir, "initial_velocity.png"),
-    z_label,
-);
+# export_plot_snapshot(
+#     z,
+#     all_vars,
+#     (
+#      "ρu[1]",
+#      "edmf.environment.ρau[1]",
+#      "edmf.updraft.ρau[1]"
+#      ),
+#     joinpath(output_dir, "initial_velocity.png"),
+#     z_label,
+# );
 # ![](initial_energy.png)
 
 # It matches what we have in `init_state_conservative!(m::SingleStack, ...)`, so
@@ -735,8 +785,8 @@ dims = OrderedDict(z_key => collect(z));
 # Create a DataFile, which is callable to get the name of each file given a step
 output_data = DataFile(joinpath(output_dir, "output_data"));
 
-all_data = Dict([k => Dict() for k in 0:n_outputs]...)
-all_data[0] = deepcopy(all_vars)
+# all_data = Dict([k => Dict() for k in 0:n_outputs]...)
+# all_data[0] = deepcopy(all_vars)
 
 # The `ClimateMachine`'s time-steppers provide hooks, or callbacks, which
 # allow users to inject code to be executed at specified intervals. In this
@@ -747,22 +797,22 @@ callback = GenericCallbacks.EveryXSimulationTime(
     every_x_simulation_time,
     solver_config.solver,
 ) do (init = false)
-    state_vars = get_vars_from_stack(
-        driver_config.grid,
-        solver_config.Q,
-        m,
-        vars_state_conservative,
-    )
-    aux_vars = get_vars_from_stack(
-        driver_config.grid,
-        solver_config.dg.state_auxiliary,
-        m,
-        vars_state_auxiliary;
-        exclude = [z_key],
-    )
-    all_vars = OrderedDict(state_vars..., aux_vars...)
+    # state_vars = get_vars_from_stack(
+    #     driver_config.grid,
+    #     solver_config.Q,
+    #     m,
+    #     vars_state_conservative,
+    # )
+    # aux_vars = get_vars_from_stack(
+    #     driver_config.grid,
+    #     solver_config.dg.state_auxiliary,
+    #     m,
+    #     vars_state_auxiliary;
+    #     exclude = [z_key],
+    # )
+    # all_vars = OrderedDict(state_vars..., aux_vars...)
     step[1] += 1
-    all_data[step[1]] = deepcopy(all_vars)
+    # all_data[step[1]] = deepcopy(all_vars)
     nothing
 end;
 
@@ -787,13 +837,13 @@ ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
 
 # Let's plot the solution:
 
-export_plot(
-    z,
-    all_data,
-    ("ρu[1]","ρu[2]",),
-    joinpath(output_dir, "solution_vs_time.png"),
-    z_label,
-);
+# export_plot(
+#     z,
+#     all_data,
+#     ("ρu[1]","ρu[2]",),
+#     joinpath(output_dir, "solution_vs_time.png"),
+#     z_label,
+# );
 # ![](solution_vs_time.png)
 
 # The results look as we would expect: a fixed temperature at the bottom is
