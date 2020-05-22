@@ -6,8 +6,14 @@
 #
 # Called with a single argument the system image will be placed in the path
 # specified by the argument (relative to the callers path)
+#
+# Called with a specified systemimg path and `true`, the system image will
+# compile the climate machine package module (useful for CI)
+
 sysimage_path =
-    isempty(ARGS) ? joinpath(@__DIR__, "ClimateMachine.so") : ARGS[1]
+    len(ARGS) < 1 ? joinpath(@__DIR__, "ClimateMachine.so") : abspath(ARGS[1])
+
+climatemachine_pkg = len(ARGS) > 1 && ARGS[2] == "true" ? true : false
 
 using Pkg
 Pkg.add("PackageCompiler")
@@ -15,11 +21,21 @@ Pkg.add("PackageCompiler")
 using PackageCompiler
 Pkg.activate(joinpath(@__DIR__, "..", ".."))
 Pkg.instantiate()
-pkgs = Pkg.installed()
+
+pkgs::Vector{Symbol} = []
+if climatemachine_pkg
+    append!(pkgs, :ClimateMachine)
+else
+    if VERSION < v"1.4"
+        append!(pkgs, keys(Pkg.installed()))
+    else
+        append!(pkgs, [v.name for v in values(Pkg.dependencies())])
+    end
+end
 delete!(pkgs, "Pkg")
 
 PackageCompiler.create_sysimage(
-    [Symbol(s) for s in keys(pkgs)];
+    pkgs,
     sysimage_path = sysimage_path,
     precompile_execution_file = joinpath(
         @__DIR__,
@@ -33,4 +49,4 @@ PackageCompiler.create_sysimage(
     ),
 )
 
-@info "Created system image object file: '$(abspath(sysimage_path))'"
+@info "Created system image object file: '$(sysimage_path)'"
