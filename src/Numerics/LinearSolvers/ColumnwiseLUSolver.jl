@@ -63,8 +63,6 @@ function LS.linearsolve!(
     Qrhs,
     args...,
 ) where {F <: DGModel}
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
-
     dg = clu.f
     A = clu.A
     Q .= Qrhs
@@ -85,7 +83,7 @@ function band_lu!(A, dg::DGModel)
     @assert typeof(dg.direction) <: VerticalDirection
 
     FT = eltype(A)
-    device = typeof(A) <: Array ? CPU() : CUDA()
+    device = array_device(A)
 
     nstate = number_state_conservative(bl, FT)
     N = polynomialorder(grid)
@@ -135,7 +133,7 @@ function band_forward!(Q, A, dg::DGModel)
     @assert typeof(dg.direction) <: VerticalDirection
 
     FT = eltype(A)
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    device = array_device(Q)
 
     nstate = number_state_conservative(bl, FT)
     N = polynomialorder(grid)
@@ -172,7 +170,7 @@ function band_back!(Q, A, dg::DGModel)
     @assert typeof(dg.direction) <: VerticalDirection
 
     FT = eltype(A)
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    device = array_device(Q)
 
     nstate = number_state_conservative(bl, FT)
     N = polynomialorder(grid)
@@ -291,7 +289,7 @@ function banded_matrix(
     @assert typeof(dg.direction) <: VerticalDirection
 
     FT = eltype(Q.data)
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    device = array_device(Q)
 
     nstate = number_state_conservative(bl, FT)
     N = polynomialorder(grid)
@@ -397,7 +395,7 @@ function banded_matrix_vector_product!(
     @assert typeof(dg.direction) <: VerticalDirection
 
     FT = eltype(Q.data)
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    device = array_device(Q)
 
     eband = number_state_gradient_flux(bl, FT) == 0 ? 1 : 2
     nstate = number_state_conservative(bl, FT)

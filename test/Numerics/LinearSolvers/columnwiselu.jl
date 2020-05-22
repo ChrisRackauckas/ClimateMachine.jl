@@ -8,11 +8,10 @@ using ClimateMachine
 using ClimateMachine.LinearSolvers
 using ClimateMachine.ColumnwiseLUSolver:
     band_lu_kernel!, band_forward_kernel!, band_back_kernel!
-
+import ClimateMachine.MPIStateArrays: array_device
 
 ClimateMachine.init()
 const ArrayType = ClimateMachine.array_type()
-const device = ArrayType == Array ? CPU() : CUDA()
 
 function band_to_full(B, p, q)
     _, n = size(B)
@@ -53,8 +52,8 @@ let
     groupsize = (Nq, Nq)
     ndrange = (Nq, Nq, nhorzelem)
 
-    event = Event(device)
-    event = band_lu_kernel!(device, groupsize, ndrange)(
+    event = Event(array_device(d_F))
+    event = band_lu_kernel!(array_device(d_F), groupsize, ndrange)(
         d_F,
         Val(Nq),
         Val(Nq),
@@ -65,7 +64,7 @@ let
         Val(eband),
         dependencies = (event,),
     )
-    wait(device, event)
+    wait(array_device(d_F), event)
 
     F = Array(d_F)
 
@@ -86,8 +85,8 @@ let
 
     d_x = ArrayType(b)
 
-    event = Event(device)
-    event = band_forward_kernel!(device, groupsize, ndrange)(
+    event = Event(array_device(d_x))
+    event = band_forward_kernel!(array_device(d_x), groupsize, ndrange)(
         d_x,
         d_F,
         Val(Nq),
@@ -99,7 +98,7 @@ let
         dependencies = (event,),
     )
 
-    event = band_back_kernel!(device, groupsize, ndrange)(
+    event = band_back_kernel!(array_device(d_x), groupsize, ndrange)(
         d_x,
         d_F,
         Val(Nq),
@@ -110,7 +109,7 @@ let
         Val(eband),
         dependencies = (event,),
     )
-    wait(device, event)
+    wait(array_device(d_x), event)
 
     @test x ≈ Array(d_x)
 end

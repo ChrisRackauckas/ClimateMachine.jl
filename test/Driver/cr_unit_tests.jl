@@ -148,7 +148,7 @@ function main()
 
         dg = solver_config.dg
         Q = solver_config.Q
-        if Array ∈ typeof(Q).parameters
+        if array_device(Q) isa CPU
             h_Q = Q.realdata
             h_aux = dg.state_auxiliary.realdata
         else
