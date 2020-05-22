@@ -320,6 +320,9 @@ end
             local_MI[k] = vgeo[ijk, _MI, e]
         end
 
+        # ensure D is loaded
+        @synchronize(dim == 3)
+
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
 
@@ -2594,8 +2597,10 @@ end
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
     end
 
-    e = @index(Group, Linear)
-    n = @index(Local, Linear)
+    I = @index(Global, Linear)
+    e = (I - 1) ÷ Np + 1
+    n = (I - 1) % Np + 1
+
     @inbounds begin
         @unroll for s in 1:num_state_conservative
             local_state_conservative[s] = state_conservative[n, s, e]

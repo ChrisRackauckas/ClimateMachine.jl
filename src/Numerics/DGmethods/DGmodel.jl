@@ -578,7 +578,7 @@ function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
     bl = dg.balance_law
     grid = dg.grid
 
-    state = create_state(bl, grid)
+    state = create_conservative_state(bl, grid)
     state .= state_data
 
     device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
@@ -796,17 +796,20 @@ function courant(
         device = grid.vgeo isa Array ? CPU() : CUDA()
         pointwise_courant = similar(grid.vgeo, Nq^dim, nrealelem)
         event = Event(device)
-        event = Grids.kernel_min_neighbor_distance!(device, (Nq, Nq, Nqk))(
+        event = Grids.kernel_min_neighbor_distance!(
+            device,
+            min(Nq * Nq * Nqk, 1024),
+        )(
             Val(N),
             Val(dim),
             direction,
             pointwise_courant,
             grid.vgeo,
             topology.realelems;
-            ndrange = (nrealelem * Nq, Nq, Nqk),
+            ndrange = (nrealelem * Nq * Nq * Nqk),
             dependencies = (event,),
         )
-        event = kernel_local_courant!(device, Nq * Nq * Nqk)(
+        event = kernel_local_courant!(device, min(Nq * Nq * Nqk, 1024))(
             m,
             Val(dim),
             Val(N),
