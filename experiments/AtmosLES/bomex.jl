@@ -61,6 +61,8 @@ using ClimateMachine.Mesh.Filters
 using ClimateMachine.ODESolvers
 using ClimateMachine.MoistThermodynamics
 using ClimateMachine.VariableTemplates
+using ClimateMachine.DGmethods: DGModel, init_ode_state, LocalGeometry
+
 
 using Distributions
 using Random
@@ -514,14 +516,22 @@ function main()
         nothing
     end
 
+    cb_check_mass_cons = GenericCallbacks.EveryXSimulationSteps(500) do (init = false)
+        Q₀ = init_ode_state(solver_config.dg, FT(0); init_on_cpu = true)
+        Q = solver_config.Q
+        norm_ρ = norm(Q[:,1,:])
+        Δρ_ratio = (norm_ρ - norm(Q₀[:,1,:])) / norm(Q₀[:,1,:])
+        @test isapprox(Δρ_ratio, FT(0); atol = 1e-3)
+        nothing
+    end
+
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbtmarfilter,),
+        user_callbacks = (cbtmarfilter, cb_check_mass_cons),
         check_euclidean_distance = true,
     )
 
-    @test isapprox(result, FT(1); atol = 4e-3)
 end
 
 main()
