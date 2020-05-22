@@ -7,7 +7,7 @@ CurrentModule = ClimateMachine.Microphysics
 ## Methods
 
 ```@docs
-ζ_rai
+v0_rai
 n0_sno
 τ_relax
 lambda
