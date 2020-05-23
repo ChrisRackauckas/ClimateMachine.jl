@@ -1,4 +1,4 @@
-using ..DGmethods.NumericalFluxes:
+using ..DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
     CentralNumericalFluxSecondOrder

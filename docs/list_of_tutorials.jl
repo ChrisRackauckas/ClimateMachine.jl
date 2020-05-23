@@ -18,12 +18,12 @@ if generate_tutorials
         ["KinematicModel.jl", "clean_build_folder.jl", "plothelpers.jl"]
     skip_execute = [
         "heldsuarez.jl",                 # broken
-        "risingbubble.jl",               # broken
-        "topo.jl",                       # broken
+        "rising_bubble.jl",              # broken
+        "topology.jl",                   # broken
         "dry_rayleigh_benard.jl",        # takes too long
-        "nonnegative.jl",                # takes too long
-        "ex_2_Kessler.jl",               # takes too long
-        "ex_1_saturation_adjustment.jl", # takes too long
+        "preserve_positivity.jl",        # takes too long
+        "Kessler.jl",                    # takes too long
+        "saturation_adjustment.jl",      # takes too long
     ]
 
     # generate tutorials

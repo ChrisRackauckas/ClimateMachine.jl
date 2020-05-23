@@ -5,8 +5,8 @@ export get_vars_from_nodal_stack, get_vars_from_element_stack
 using OrderedCollections
 using StaticArrays
 
-using ..DGmethods
-using ..DGmethods.Grids
+using ..DGMethods
+using ..DGMethods.Grids
 using ..MPIStateArrays
 using ..VariableTemplates
 

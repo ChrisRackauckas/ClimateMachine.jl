@@ -1,7 +1,7 @@
 # DG Balance Law Method
 
 ```@meta
-CurrentModule = ClimateMachine.DGmethods
+CurrentModule = ClimateMachine.DGMethods
 ```
 
 ## The balance law
