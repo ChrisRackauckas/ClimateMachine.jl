@@ -1,16 +1,11 @@
-module BatchedGeneralizedMinimalResidualSolver
 
 export BatchedGeneralizedMinimalResidual
 
-using ..LinearSolvers
-const LS = LinearSolvers
-using Adapt, CuArrays, KernelAbstractions, LinearAlgebra
-using ..MPIStateArrays
-using ..Mesh.Grids: dimensionality, polynomialorder
-using ..DGmethods: DGModel
-
 # struct
 """
+    BatchedGeneralizedMinimalResidual{FT, IT, VT, AT, TT1, TT2} <:
+       AbstractIterativeLinearSolver
+
 # Description
 
 Launches n independent GMRES solves
@@ -44,7 +39,7 @@ Solving n linear systems iteratively
 - Needs to perform a transpose of original data structure into current data structure: Could perhaps do a transpose free version, but the code gets a bit clunkier and the memory would no longer be coalesced for the heavy operations
 """
 struct BatchedGeneralizedMinimalResidual{FT, IT, VT, AT, TT1, TT2} <:
-       LS.AbstractIterativeLinearSolver
+       AbstractIterativeLinearSolver
     atol::FT
     rtol::FT
     m::IT
@@ -89,7 +84,17 @@ Adapt.adapt_structure(to, x::BatchedGeneralizedMinimalResidual) =
     )
 
 """
-BatchedGeneralizedMinimalResidual(Qrhs; m = length(Qrhs[:,1]), n = length(Qrhs[1,:]), subspace_size = m, atol = sqrt(eps(eltype(Qrhs))), rtol = sqrt(eps(eltype(Qrhs))), ArrayType = Array, reshape_tuple_f = size(Qrhs), permute_tuple_f = Tuple(1:length(size(Qrhs))), reshape_tuple_b = size(Qrhs), permute_tuple_b = Tuple(1:length(size(Qrhs))))
+    BatchedGeneralizedMinimalResidual(
+        Qrhs;
+        m = size(Qrhs)[1],
+        n = size(Qrhs)[end],
+        subspace_size = m,
+        atol = sqrt(eps(eltype(Qrhs))),
+        rtol = sqrt(eps(eltype(Qrhs))),
+        ArrayType = Array,
+        reshape_tuple_f = size(Qrhs),
+        permute_tuple_f = Tuple(1:length(size(Qrhs))),
+    )
 
 # Description
 Generic constructor for BatchedGeneralizedMinimalResidual
@@ -159,18 +164,18 @@ function BatchedGeneralizedMinimalResidual(
 end
 
 """
-BatchedGeneralizedMinimalResidual(
-    dg::DGModel,
-    Q::MPIStateArray;
-    atol = sqrt(eps(eltype(Q))),
-    rtol = sqrt(eps(eltype(Q))),
-    max_subspace_size = nothing,
-    independent_states = false,
-)
+    BatchedGeneralizedMinimalResidual(
+        dg::DGModel,
+        Q::MPIStateArray;
+        atol = sqrt(eps(eltype(Q))),
+        rtol = sqrt(eps(eltype(Q))),
+        max_subspace_size = nothing,
+        independent_states = false,
+    )
 
 # Description
 Specialized constructor for BatchedGeneralizedMinimalResidual struct, using
-a `DGModel` to infer state-information and determine appropraite reshaping
+a `DGModel` to infer state-information and determine appropriate reshaping
 and permutations.
 
 # Arguments
@@ -288,7 +293,7 @@ function BatchedGeneralizedMinimalResidual(
 end
 
 # initialize function (1)
-function LS.initialize!(
+function initialize!(
     linearoperator!,
     Q,
     Qrhs,
@@ -300,7 +305,7 @@ function LS.initialize!(
 end
 
 # iteration function (2)
-function LS.doiteration!(
+function doiteration!(
     linearoperator!,
     Q,
     Qrhs,
@@ -439,7 +444,13 @@ end
 
 # The function(s) that probably needs the most help
 """
-function convert_structure!(x, y, reshape_tuple, permute_tuple)
+    convert_structure!(
+        x,
+        y,
+        reshape_tuple,
+        permute_tuple;
+        convert = true,
+    )
 
 # Description
 Computes a tensor transpose and stores result in x
@@ -480,7 +491,7 @@ end
 
 # Kernels
 """
-initialize_gmres_kernel!(gmres)
+    initialize_gmres_kernel!(gmres)
 
 # Description
 Initializes the gmres struct by calling
@@ -507,7 +518,7 @@ It is assumed that the first two krylov vectors are already constructed
 end
 
 """
-gmres_update_kernel!(i, gmres, I)
+    gmres_update_kernel!(i, gmres)
 
 # Description
 kernel that calls
@@ -532,7 +543,7 @@ kernel object from KernelAbstractions
 end
 
 """
-construct_solution_kernel!(i, gmres)
+    construct_solution_kernel!(i, gmres)
 
 # Description
 given step i of the gmres iteration, constructs the "best" solution of the linear system for the given Krylov subspace
@@ -556,7 +567,7 @@ end
 # Helper Functions
 
 """
-initialize_arnoldi!(g, I)
+    initialize_arnoldi!(g, I)
 
 # Description
 - First step of Arnoldi Iteration is to define first Krylov vector. Additionally sets things equal to zero
@@ -598,7 +609,7 @@ nothing
 end
 
 """
-initialize_QR!(gmres::BatchedGeneralizedMinimalResidual, I)
+    initialize_QR!(gmres::BatchedGeneralizedMinimalResidual, I)
 
 # Description
 initializes the QR decomposition of the UpperHesenberg Matrix
@@ -621,7 +632,8 @@ end
 
 # The meat of gmres with updates that leverage information from the previous iteration
 """
-update_arnoldi!(n, gmres, I)
+    update_arnoldi!(n, gmres, I)
+
 # Description
 Perform an Arnoldi iteration update
 
@@ -666,7 +678,7 @@ nothing
 end
 
 """
-update_QR!(n, gmres, I)
+    update_QR!(n, gmres, I)
 
 # Description
 Given a QR decomposition of the first n-1 columns of an upper hessenberg matrix, this computes the QR decomposition associated with the first n columns
@@ -706,7 +718,7 @@ What is actually produced by the algorithm isn't the Q in the QR decomposition b
 end
 
 """
-solve_optimization!(iteration, gmres, I)
+    solve_optimization!(iteration, gmres, I)
 
 # Description
 Solves the optimization problem in GMRES
@@ -744,7 +756,7 @@ nothing
 end
 
 """
-compute_residuals(gmres)
+    compute_residuals(gmres, i)
 
 # Description
 Compute atol and rtol of current iteration
@@ -765,5 +777,3 @@ function compute_residuals(gmres, i)
     rtol = maximum(gmres.residual[i, :] ./ norm(gmres.R[1, 1, :]))
     return atol, rtol
 end
-
-end # end of module

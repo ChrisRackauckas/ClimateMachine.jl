@@ -91,7 +91,6 @@ For example, consider the following:
 export MyIMEXMethod
 
 using ..LinearSolvers
-const LS = LinearSolvers
 
 struct MyIMEXMethod{T, RT, AT, LT, V, VS, Nstages, Nstages_sq} <: AbstractODESolver
     "time step"

@@ -1,21 +1,8 @@
-"""
-    ConjugateGradientSolver
-
-Conjugate Gradient method solver
-"""
-module ConjugateGradientSolver
 
 export ConjugateGradient
 
-using ..LinearSolvers
-const LS = LinearSolvers
-using ClimateMachine.MPIStateArrays
-using LinearAlgebra
-using LazyArrays
-using StaticArrays
-
 struct ConjugateGradient{AT1, AT2, FT, RD, RT, IT} <:
-       LS.AbstractIterativeLinearSolver
+       AbstractIterativeLinearSolver
     # tolerances (2)
     rtol::FT
     atol::FT
@@ -41,14 +28,19 @@ end
 
 # Define the outer constructor for the ConjugateGradient struct
 """
-# ConjugateGradient
-function ConjugateGradient(Q::AT; rtol = eps(eltype(Q)), atol = eps(eltype(Q)), dims = :) where AT
+    ConjugateGradient(
+        Q::AT;
+        rtol = eps(eltype(Q)),
+        atol = eps(eltype(Q)),
+        dims = :,
+        reshape_tuple = size(Q),
+    ) where AT
 
 # Description
 - Outer constructor for the ConjugateGradient struct
 
 # Arguments
-- `Q`:(array). The kind of object that linearoperator! acts on.
+- `Q`:(array). The kind of object that `linearoperator!` acts on.
 
 # Keyword Arguments
 - `rtol`: (float). relative tolerance
@@ -57,7 +49,7 @@ function ConjugateGradient(Q::AT; rtol = eps(eltype(Q)), atol = eps(eltype(Q)), 
 - `reshape_tuple`: (tuple). the dimensions that the conjugate gradient solver operators over
 
 # Comment
-- The reshape tuple is necessary in case the linearoperator! is defined over vectors of a different size as compared to what plays nicely with the dimension reduction in the ConjugateGradient. It also allows the user to define preconditioners over arrays that are more convenienently shaped.
+- The reshape tuple is necessary in case the `linearoperator!` is defined over vectors of a different size as compared to what plays nicely with the dimension reduction in the ConjugateGradient. It also allows the user to define preconditioners over arrays that are more conveniently shaped.
 
 # Return
 - ConjugateGradient struct
@@ -113,13 +105,19 @@ end
 
 # Define the outer constructor for the ConjugateGradient struct
 """
-function ConjugateGradient(Q::MPIStateArray; rtol = eps(eltype(Q)), atol = eps(eltype(Q)), dims = :)
+    ConjugateGradient(
+        Q::MPIStateArray;
+        rtol = eps(eltype(Q)),
+        atol = eps(eltype(Q)),
+        dims = :,
+        reshape_tuple = size(Q),
+    )
 
 # Description
 Outer constructor for the ConjugateGradient struct with MPIStateArrays. THIS IS A HACK DUE TO RESHAPE FUNCTIONALITY ON MPISTATEARRAYS.
 
 # Arguments
-- `Q`:(array). The kind of object that linearoperator! acts on.
+- `Q`:(array). The kind of object that `linearoperator!` acts on.
 
 # Keyword Arguments
 - `rtol`: (float). relative tolerance
@@ -128,7 +126,7 @@ Outer constructor for the ConjugateGradient struct with MPIStateArrays. THIS IS 
 - `reshape_tuple`: (tuple). the dimensions that the conjugate gradient solver operators over
 
 # Comment
-- The reshape tuple is necessary in case the linearoperator! is defined over vectors of a different size as compared to what plays nicely with the dimension reduction in the ConjugateGradient. It also allows the user to define preconditioners over arrays that are more convenienently shaped.
+- The reshape tuple is necessary in case the `linearoperator!` is defined over vectors of a different size as compared to what plays nicely with the dimension reduction in the ConjugateGradient. It also allows the user to define preconditioners over arrays that are more conveniently shaped.
 
 # Return
 - ConjugateGradient struct
@@ -184,7 +182,13 @@ end
 
 
 """
-LS.initialize!(linearoperator!, Q, Qrhs, solver::ColumnwisePreconditionedConjugateGradient, args...)
+    initialize!(
+        linearoperator!,
+        Q,
+        Qrhs,
+        solver::ConjugateGradient,
+        args...
+    )
 
 # Description
 
@@ -193,10 +197,10 @@ LS.initialize!(linearoperator!, Q, Qrhs, solver::ColumnwisePreconditionedConjuga
 # Arguments
 
 - `linearoperator!`: (function). This applies the predefined linear operator on an array. Applies a linear operator to object "y" and overwrites object "z". The function argument i s linearoperator!(z,y, args...) and it returns nothing.
-- `Q`: (array). This is an object that linearoperator! outputs
-- `Qrhs`: (array). This is an object that linearoperator! acts on
-- `solver`: (struct). This is a scruct for dispatch, in this case for ColumnwisePreconditionedConjugateGradient
-- `args...`: (arbitrary). This is optional arguments that can be passed into linearoperator! function.
+- `Q`: (array). This is an object that `linearoperator!` outputs
+- `Qrhs`: (array). This is an object that `linearoperator!` acts on
+- `solver`: (struct). This is a scruct for dispatch, in this case for ConjugateGradient
+- `args...`: (arbitrary). This is optional arguments that can be passed into `linearoperator!` function.
 
 # Keyword Arguments
 
@@ -210,7 +214,7 @@ LS.initialize!(linearoperator!, Q, Qrhs, solver::ColumnwisePreconditionedConjuga
 - This function does nothing for conjugate gradient
 
 """
-function LS.initialize!(
+function initialize!(
     linearoperator!,
     Q,
     Qrhs,
@@ -223,7 +227,15 @@ end
 
 
 """
-LS.doiteration!(linearoperator!, Q, Qrhs, solver::ColumnwisePreconditionedConjugateGradient, threshold, args...; applyPC!)
+    doiteration!(
+        linearoperator!,
+        Q,
+        Qrhs,
+        solver::ConjugateGradient,
+        threshold,
+        args...;
+        applyPC!
+    )
 
 # Description
 
@@ -232,12 +244,12 @@ LS.doiteration!(linearoperator!, Q, Qrhs, solver::ColumnwisePreconditionedConjug
 # Arguments
 
 - `linearoperator!`: (function). This applies the predefined linear operator on an array. Applies a linear operator to object "y" and overwrites object "z". It is a function with arguments linearoperator!(z,y, args...), where "z" gets overwritten by "y" and "args..." are additional arguments passed to the linear operator. The linear operator is assumed to return nothing.
-- `Q`: (array). This is an object that linearoperator! overwrites
-- `Qrhs`: (array). This is an object that linearoperator! acts on. This is the rhs to the linear system
+- `Q`: (array). This is an object that `linearoperator!` overwrites
+- `Qrhs`: (array). This is an object that `linearoperator!` acts on. This is the rhs to the linear system
 - `solver`: (struct). This is a scruct for dispatch, in this case for ConjugateGradient
 - `threshold`: (float). Either an absolute or relative tolerance
 - `applyPC!`: (function). Applies a preconditioner to objecy "y" and overwrites object "z". applyPC!(z,y)
-- `args...`: (arbitrary). This is necessary for the linearoperator! function which has a signature linearoperator!(b, x, args....)
+- `args...`: (arbitrary). This is necessary for the `linearoperator!` function which has a signature linearoperator!(b, x, args....)
 
 # Keyword Arguments
 
@@ -252,7 +264,7 @@ LS.doiteration!(linearoperator!, Q, Qrhs, solver::ColumnwisePreconditionedConjug
 - This function does conjugate gradient
 
 """
-function LS.doiteration!(
+function doiteration!(
     linearoperator!,
     Q,
     Qrhs,
@@ -342,7 +354,15 @@ function LS.doiteration!(
 end
 
 """
-LS.doiteration!(linearoperator!, Q::MPIStateArray, Qrhs::MPIStateArray, solver::ColumnwisePreconditionedConjugateGradient, threshold, args...; applyPC!)
+    doiteration!(
+        linearoperator!,
+        Q::MPIStateArray,
+        Qrhs::MPIStateArray,
+        solver::ConjugateGradient,
+        threshold,
+        args...;
+        applyPC!
+    )
 
 # Description
 
@@ -351,12 +371,12 @@ This function enacts the iterative solver. It is called as part of the AbstractI
 # Arguments
 
 - `linearoperator!`: (function). This applies the predefined linear operator on an array. Applies a linear operator to object "y" and overwrites object "z". It is a function with arguments linearoperator!(z,y, args...), where "z" gets overwritten by "y" and "args..." are additional arguments passed to the linear operator. The linear operator is assumed to return nothing.
-- `Q`: (array). This is an object that linearoperator! overwrites
-- `Qrhs`: (array). This is an object that linearoperator! acts on. This is the rhs to the linear system
+- `Q`: (array). This is an object that `linearoperator!` overwrites
+- `Qrhs`: (array). This is an object that `linearoperator!` acts on. This is the rhs to the linear system
 - `solver`: (struct). This is a scruct for dispatch, in this case for ConjugateGradient
 - `threshold`: (float). Either an absolute or relative tolerance
 - `applyPC!`: (function). Applies a preconditioner to objecy "y" and overwrites object "z". applyPC!(z,y)
-- `args...`: (arbitrary). This is necessary for the linearoperator! function which has a signature linearoperator!(b, x, args....)
+- `args...`: (arbitrary). This is necessary for the `linearoperator!` function which has a signature linearoperator!(b, x, args....)
 
 # Keyword Arguments
 
@@ -371,7 +391,7 @@ This function enacts the iterative solver. It is called as part of the AbstractI
 - This function does conjugate gradient
 
 """
-function LS.doiteration!(
+function doiteration!(
     linearoperator!,
     Q::MPIStateArray,
     Qrhs::MPIStateArray,
@@ -460,5 +480,3 @@ function LS.doiteration!(
     return converged, max_iter, absolute_residual
 end
 
-
-end #module

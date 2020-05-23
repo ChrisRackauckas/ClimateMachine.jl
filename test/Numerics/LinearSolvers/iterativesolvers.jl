@@ -1,8 +1,6 @@
 using Test
 using ClimateMachine
 using ClimateMachine.LinearSolvers
-using ClimateMachine.GeneralizedConjugateResidualSolver
-using ClimateMachine.GeneralizedMinimalResidualSolver
 
 using StaticArrays, LinearAlgebra, Random
 

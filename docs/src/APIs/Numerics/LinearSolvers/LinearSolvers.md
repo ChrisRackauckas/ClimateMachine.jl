@@ -1,34 +1,34 @@
 # Linear Solvers
 
 ```@meta
-CurrentModule = ClimateMachine
+CurrentModule = ClimateMachine.LinearSolvers
 ```
 
 ## Generalized Conjugate Residual Method
 
 ```@docs
-GeneralizedConjugateResidualSolver.GeneralizedConjugateResidual
+GeneralizedConjugateResidual
 ```
 
 ## Generalized Minimal Residual Method
 
 ```@docs
-GeneralizedMinimalResidualSolver.GeneralizedMinimalResidual
+GeneralizedMinimalResidual
 ```
 
 ## Conjugate Gradient Solver Method
 ```@docs
-ConjugateGradientSolver.ConjugateGradient
-LinearSolvers.initialize!
-LinearSolvers.doiteration!
+ConjugateGradient
+initialize!
+doiteration!
 ```
 
 ## Shared components
 
 ```@docs
-LinearSolvers.AbstractLinearSolver
-LinearSolvers.AbstractIterativeLinearSolver
-LinearSolvers.linearsolve!
-LinearSolvers.settolerance!
-LinearSolvers.prefactorize
+AbstractLinearSolver
+AbstractIterativeLinearSolver
+linearsolve!
+settolerance!
+prefactorize
 ```

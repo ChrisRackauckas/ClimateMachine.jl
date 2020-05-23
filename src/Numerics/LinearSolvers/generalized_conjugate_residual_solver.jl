@@ -1,15 +1,5 @@
-module GeneralizedConjugateResidualSolver
 
 export GeneralizedConjugateResidual
-
-using ..LinearSolvers
-const LS = LinearSolvers
-using ..MPIStateArrays: device, realview
-
-using LinearAlgebra
-using LazyArrays
-using StaticArrays
-using KernelAbstractions
 
 """
     GeneralizedConjugateResidual(K, Q; rtol, atol)
@@ -40,7 +30,7 @@ This uses the restarted Generalized Conjugate Residual method of Eisenstat (1983
     }
 """
 mutable struct GeneralizedConjugateResidual{K, T, AT} <:
-               LS.AbstractIterativeLinearSolver
+               AbstractIterativeLinearSolver
     residual::AT
     L_residual::AT
     p::NTuple{K, AT}
@@ -71,7 +61,7 @@ end
 
 const weighted = false
 
-function LS.initialize!(
+function initialize!(
     linearoperator!,
     Q,
     Qrhs,
@@ -104,7 +94,7 @@ function LS.initialize!(
     converged, threshold
 end
 
-function LS.doiteration!(
+function doiteration!(
     linearoperator!,
     Q,
     Qrhs,
@@ -157,7 +147,7 @@ function LS.doiteration!(
         T = eltype(alpha)
 
         event = Event(device(Q))
-        event = LS.linearcombination!(device(Q), groupsize)(
+        event = linearcombination!(device(Q), groupsize)(
             rv_nextp,
             (one(T), alpha[1:k]...),
             (rv_residual, rv_p[1:k]...),
@@ -166,7 +156,7 @@ function LS.doiteration!(
             dependencies = (event,),
         )
 
-        event = LS.linearcombination!(device(Q), groupsize)(
+        event = linearcombination!(device(Q), groupsize)(
             rv_L_nextp,
             (one(T), alpha[1:k]...),
             (rv_L_residual, rv_L_p[1:k]...),
@@ -180,4 +170,3 @@ function LS.doiteration!(
     (false, K, residual_norm)
 end
 
-end

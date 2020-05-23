@@ -5,7 +5,6 @@ using Random
 using StaticArrays
 using ClimateMachine
 using ClimateMachine.LinearSolvers
-using ClimateMachine.BatchedGeneralizedMinimalResidualSolver
 using ClimateMachine.MPIStateArrays
 using CUDAapi
 using Random

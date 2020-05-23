@@ -6,8 +6,6 @@ using KernelAbstractions, StaticArrays
 
 using ClimateMachine
 using ClimateMachine.LinearSolvers
-using ClimateMachine.ColumnwiseLUSolver:
-    band_lu_kernel!, band_forward_kernel!, band_back_kernel!
 
 
 ClimateMachine.init()

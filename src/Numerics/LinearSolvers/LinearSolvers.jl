@@ -1,10 +1,21 @@
 module LinearSolvers
 
+using ..Mesh.Grids: dimensionality, polynomialorder
 using ..MPIStateArrays
+using ..MPIStateArrays: device, realview
+using ..Mesh.Grids
+using ..Mesh.Topologies
+using ..DGmethods
+using ..DGmethods:
+    BalanceLaw, DGModel, number_state_conservative, number_state_gradient_flux
 
-using StaticArrays, LinearAlgebra
-
+using Adapt
+using CuArrays
+using LazyArrays
+using StaticArrays
+using LinearAlgebra
 using KernelAbstractions
+using KernelAbstractions.Extras: @unroll
 
 # just for testing LinearSolvers
 LinearAlgebra.norm(A::MVector, p::Real, weighted::Bool) = norm(A, p)
@@ -38,7 +49,11 @@ The available concrete implementations are:
 abstract type AbstractIterativeLinearSolver <: AbstractLinearSolver end
 
 """
-    settolerance!(solver::AbstractIterativeLinearSolver, tolerance, relative)
+    settolerance!(
+        solver::AbstractIterativeLinearSolver,
+        tolerance,
+        relative = true,
+    )
 
 Sets the relative or absolute tolerance of the iterative linear solver
 `solver` to `tolerance`.
@@ -78,7 +93,15 @@ prefactorize(linop!, linearsolver::AbstractIterativeLinearSolver, args...) =
     linop!
 
 """
-    linearsolve!(linearoperator!, solver::AbstractIterativeLinearSolver, Q, Qrhs, args...)
+    linearsolve!(
+        linearoperator!,
+        solver::AbstractIterativeLinearSolver,
+        Q,
+        Qrhs,
+        args...;
+        max_iters = length(Q),
+        cvg = Ref{Bool}(),
+    )
 
 Solves a linear problem defined by the `linearoperator!` function and the state
 `Qrhs`, i.e,
@@ -135,5 +158,11 @@ end
         Q[i] += cs[j] * Xs[j][i]
     end
 end
+
+include("generalized_conjugate_residual_solver.jl")
+include("generalized_minimal_residual_solver.jl")
+include("columnwise_lu_solver.jl")
+include("conjugate_gradient_solver.jl")
+include("batched_generalized_minimal_residual_solver.jl")
 
 end

@@ -1,20 +1,10 @@
-module GeneralizedMinimalResidualSolver
 
 export GeneralizedMinimalResidual
 
-using ..LinearSolvers
-const LS = LinearSolvers
-using ..MPIStateArrays: device, realview
-
-using LinearAlgebra
-using LazyArrays
-using StaticArrays
-using KernelAbstractions
-
 """
-# GMRES
     GeneralizedMinimalResidual(Q; M, rtol, atol)
 
+# GMRES
 This is an object for solving linear systems using an iterative Krylov method.
 The constructor parameter `M` is the number of steps after which the algorithm
 is restarted (if it has not converged), `Q` is a reference state used only
@@ -38,7 +28,7 @@ This uses the restarted Generalized Minimal Residual method of Saad and Schultz 
     }
 """
 mutable struct GeneralizedMinimalResidual{M, MP1, MMP1, T, AT} <:
-               LS.AbstractIterativeLinearSolver
+               AbstractIterativeLinearSolver
     krylov_basis::NTuple{MP1, AT}
     "Hessenberg matrix"
     H::MArray{Tuple{MP1, M}, T, 2, MMP1}
@@ -69,7 +59,7 @@ end
 
 const weighted = false
 
-function LS.initialize!(
+function initialize!(
     linearoperator!,
     Q,
     Qrhs,
@@ -103,7 +93,7 @@ function LS.initialize!(
     converged, max(threshold, atol)
 end
 
-function LS.doiteration!(
+function doiteration!(
     linearoperator!,
     Q,
     Qrhs,
@@ -161,7 +151,7 @@ function LS.doiteration!(
     rv_krylov_basis = realview.(krylov_basis)
     groupsize = 256
     event = Event(device(Q))
-    event = LS.linearcombination!(device(Q), groupsize)(
+    event = linearcombination!(device(Q), groupsize)(
         rv_Q,
         y,
         rv_krylov_basis,
@@ -172,9 +162,8 @@ function LS.doiteration!(
     wait(device(Q), event)
 
     # if not converged restart
-    converged || LS.initialize!(linearoperator!, Q, Qrhs, solver, args...)
+    converged || initialize!(linearoperator!, Q, Qrhs, solver, args...)
 
     (converged, j, residual_norm)
 end
 
-end

@@ -1,17 +1,5 @@
-module ColumnwiseLUSolver
 
 export ManyColumnLU, SingleColumnLU
-
-using ..Mesh.Grids
-using ..Mesh.Topologies
-using ..DGmethods
-using ..DGmethods:
-    BalanceLaw, DGModel, number_state_conservative, number_state_gradient_flux
-using ..LinearSolvers
-const LS = LinearSolvers
-using ..MPIStateArrays
-using LinearAlgebra
-using KernelAbstractions
 
 abstract type AbstractColumnLUSolver <: AbstractLinearSolver end
 
@@ -38,7 +26,7 @@ struct ColumnwiseLU{F, AT}
     A::AT
 end
 
-function LS.prefactorize(op, solver::AbstractColumnLUSolver, Q, args...)
+function prefactorize(op, solver::AbstractColumnLUSolver, Q, args...)
     dg = op.f!
 
     # TODO: can we get away with just passing the grid?
@@ -56,7 +44,7 @@ function LS.prefactorize(op, solver::AbstractColumnLUSolver, Q, args...)
     ColumnwiseLU(dg, A)
 end
 
-function LS.linearsolve!(
+function linearsolve!(
     clu::ColumnwiseLU{F},
     ::AbstractColumnLUSolver,
     Q,
@@ -203,8 +191,12 @@ end
 
 
 """
-    banded_matrix(dg::DGModel, [Q::MPIStateArray, dQ::MPIStateArray,
-                  single_column=false])
+    banded_matrix(
+        dg::DGModel,
+        [Q::MPIStateArray,
+        dQ::MPIStateArray,
+        single_column=false]
+    )
 
 Forms the banded matrices for each the column operator defined by the `DGModel`
 dg.  If `single_column=false` then a banded matrix is stored for each column and
@@ -245,10 +237,14 @@ function banded_matrix(
 end
 
 """
-    banded_matrix(f!::Function, dg::DGModel,
-                  Q::MPIStateArray = MPIStateArray(dg),
-                  dQ::MPIStateArray = MPIStateArray(dg), args...;
-                  single_column = false, args...)
+    banded_matrix(
+        f!,
+        dg::DGModel,
+        Q::MPIStateArray = MPIStateArray(dg),
+        dQ::MPIStateArray = MPIStateArray(dg),
+        args...;
+        single_column = false,
+    )
 
 Forms the banded matrices for each the column operator defined by the linear
 operator `f!` which is assumed to have the same banded structure as the
@@ -376,8 +372,12 @@ end
 
 
 """
-    banded_matrix_vector_product!(dg::DGModel, A, dQ::MPIStateArray,
-                                  Q::MPIStateArray)
+    banded_matrix_vector_product!(
+        dg::DGModel,
+        A,
+        dQ::MPIStateArray,
+        Q::MPIStateArray,
+    )
 
 Compute a matrix vector product `dQ = A * Q` where `A` is assumed to be a matrix
 created using the `banded_matrix` function.
@@ -432,12 +432,17 @@ function banded_matrix_vector_product!(
     wait(device, event)
 end
 
-using StaticArrays
-using KernelAbstractions.Extras: @unroll
-
 @doc """
-    band_lu_kernel!(A, Val(Nq), Val(Nqi), Val(Nqj), Val(nstate), Val(nvertelem),
-                 Val(nhorzelem), Val(eband))
+    band_lu_kernel!(
+        A,
+        ::Val{Nq},
+        ::Val{Nqi},
+        ::Val{Nqj},
+        ::Val{nstate},
+        ::Val{nvertelem},
+        ::Val{nhorzelem},
+        ::Val{eband},
+    ) where {Nq, Nqi, Nqj, nstate, nvertelem, nhorzelem, eband}
 
 This performs Band Gaussian Elimination (Algorithm 4.3.1 of Golub and Van
 Loan).  The array `A` contains a band matrix for each vertical column.  For
@@ -524,8 +529,16 @@ is stored as
 end
 
 @doc """
-    band_forward_kernel!(b, LU, Val(Nq), Val(Nqj), Val(nstate), Val(nvertelem),
-                      Val(nhorzelem), Val(eband))
+    band_forward_kernel!(
+        b,
+        LU::AbstractArray{T, N},
+        ::Val{Nq},
+        ::Val{Nqj},
+        ::Val{nstate},
+        ::Val{nvertelem},
+        ::Val{nhorzelem},
+        ::Val{eband},
+    ) where {T, N, Nq, Nqj, nstate, nvertelem, nhorzelem, eband}
 
 This performs Band Forward Substitution (Algorithm 4.3.2 of Golub and Van
 Loan), i.e., the right-hand side `b` is replaced with the solution of `L*x=b`.
@@ -621,8 +634,16 @@ eband - 1`.
 end
 
 @doc """
-    band_back_kernel!(b, LU, Val(Nq), Val(Nqj), Val(nstate), Val(nvertelem),
-                   Val(nhorzelem), Val(eband))
+    band_back_kernel!(
+        b,
+        LU::AbstractArray{T, N},
+        ::Val{Nq},
+        ::Val{Nqj},
+        ::Val{nstate},
+        ::Val{nvertelem},
+        ::Val{nhorzelem},
+        ::Val{eband},
+    ) where {T, N, Nq, Nqj, nstate, nvertelem, nhorzelem, eband}
 
 This performs Band Back Substitution (Algorithm 4.3.3 of Golub and Van
 Loan), i.e., the right-hand side `b` is replaced with the solution of `U*x=b`.
@@ -876,4 +897,4 @@ end
         end
     end
 end
-end
+

@@ -13,7 +13,7 @@ using CLIMAParameters
 
 using ..Atmos
 using ..Callbacks
-using ..ColumnwiseLUSolver
+using ..LinearSolvers
 using ..ConfigTypes
 using ..Diagnostics
 using ..DGmethods

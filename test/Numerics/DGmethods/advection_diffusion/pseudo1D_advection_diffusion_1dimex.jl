@@ -8,9 +8,6 @@ using ClimateMachine.DGmethods
 using ClimateMachine.DGmethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.LinearSolvers
-using ClimateMachine.GeneralizedMinimalResidualSolver
-using ClimateMachine.ColumnwiseLUSolver:
-    SingleColumnLU, ManyColumnLU, banded_matrix, banded_matrix_vector_product!
 using ClimateMachine.ODESolvers
 using LinearAlgebra
 using Printf

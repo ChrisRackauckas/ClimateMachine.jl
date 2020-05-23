@@ -5,8 +5,6 @@ using Logging, Printf
 
 using ClimateMachine
 using ClimateMachine.LinearSolvers
-using ClimateMachine.GeneralizedConjugateResidualSolver
-using ClimateMachine.GeneralizedMinimalResidualSolver
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGmethods.NumericalFluxes
