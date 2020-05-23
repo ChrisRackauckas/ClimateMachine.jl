@@ -4,8 +4,8 @@ export ManyColumnLU, SingleColumnLU
 
 using ..Mesh.Grids
 using ..Mesh.Topologies
-using ..DGmethods
-using ..DGmethods:
+using ..DGMethods
+using ..DGMethods:
     BalanceLaw, DGModel, number_state_conservative, number_state_gradient_flux
 using ..LinearSolvers
 const LS = LinearSolvers

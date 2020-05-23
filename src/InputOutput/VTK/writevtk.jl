@@ -1,6 +1,6 @@
 using ..Mesh.Grids
 using ..MPIStateArrays
-using ..DGmethods
+using ..DGMethods
 using ..TicToc
 
 """

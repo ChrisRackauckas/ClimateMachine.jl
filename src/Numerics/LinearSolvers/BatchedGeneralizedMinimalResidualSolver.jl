@@ -7,7 +7,7 @@ const LS = LinearSolvers
 using Adapt, CuArrays, KernelAbstractions, LinearAlgebra
 using ..MPIStateArrays
 using ..Mesh.Grids: dimensionality, polynomialorder
-using ..DGmethods: DGModel
+using ..DGMethods: DGModel
 
 # struct
 """
