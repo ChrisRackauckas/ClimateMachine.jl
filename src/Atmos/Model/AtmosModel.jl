@@ -333,6 +333,7 @@ equations.
     state::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     ρ = state.ρ
     ρinv = 1 / ρ
