@@ -335,17 +335,47 @@ end
         args...,
     )
 
-The wavespeed for a remainder model is defined to be the difference of the wavespeed
-of the main model and the sum of the subcomponents.
+The wavespeed for a remainder model is defined to be the difference of the
+wavespeed of the main model and the sum of the subcomponents.
 
 Note: Defining the wavespeed in this manner can result in a smaller value than
 the actually wavespeed of the remainder physics model depending on the
 composition of the models.
 """
-function wavespeed(rem_balance_law::RemBL, nM, state::Vars, aux::Vars, t::Real)
-    ref = aux.ref_state
-    return wavespeed(rem_balance_law.main, nM, state, aux, t) -
-           sum(sub -> wavespeed(sub, nM, state, aux, t), rem_balance_law.subs)
+function wavespeed(
+    rem_balance_law::RemBL,
+    nM,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    ::Dirs,
+) where {ND, Dirs <: NTuple{ND, Direction}}
+    # Compute the main components wavespeed
+    main_wavespeed = if rem_balance_law.maindir isa Union{Dirs.types...}
+        wavespeed(
+            rem_balance_law.main,
+            nM,
+            state,
+            aux,
+            t,
+            (rem_balance_law.maindir,),
+        )
+    else
+        -zero(eltype(state))
+    end
+
+    # Compute the sub components wavespeed
+    sub_wavespeed =
+        sum(zip(rem_balance_law.subs, rem_balance_law.subsdir)) do (sub, subdir)
+            @inbounds if subdir isa Union{Dirs.types...}
+                # compute this submodels wavespeed
+                wavespeed(sub, nM, state, aux, t, (subdir,))
+            else
+                -zero(eltype(state))
+            end
+        end
+
+    return main_wavespeed - sub_wavespeed
 end
 
 # Here the fluxes are pirated to handle the case of tuples of fluxes

@@ -159,6 +159,7 @@ end
     state::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     FT = eltype(state)
     u = state.ρu / state.ρ
