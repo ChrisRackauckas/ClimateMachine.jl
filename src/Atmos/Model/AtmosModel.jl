@@ -481,6 +481,7 @@ end
 
     ws = fill(uN, MVector{number_state_conservative(m, FT), FT})
 
+    vars_ws = Vars{vars_state_conservative(m, FT)}(ws)
     vars_ws.ρ = vars_ws.ρ + ss
     vars_ws.ρu = vars_ws.ρu .+ ss
     vars_ws.ρe = vars_ws.ρe + ss
