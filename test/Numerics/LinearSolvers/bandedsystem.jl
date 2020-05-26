@@ -179,7 +179,7 @@ let
                     big_Q .= NaN
                     big_dQ .= NaN
 
-                    big_Q[:, 1:size(Q, 2), :] .= Q
+                    big_Q.data[:, 1:size(Q, 2), :] .= Q.data
 
                     vdg(big_dQ, big_Q, nothing, 0; increment = false)
 
