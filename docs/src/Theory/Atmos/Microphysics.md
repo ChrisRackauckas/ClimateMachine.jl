@@ -274,7 +274,7 @@ Integrating over the assumed Marshall-Palmer distribution and using the
 ```math
 \begin{equation}
   v_t = \chi_v \, v_0 \, \left(\frac{1}{r_0 \, \lambda}\right)^{v_e + \Delta_v}
-        \frac{\Gamma(m_e + m_v + \Delta_m + \Delta_v + 1)}
+        \frac{\Gamma(m_e + v_e + \Delta_m + \Delta_v + 1)}
              {\Gamma(m_e + \Delta_m + 1)}
 \end{equation}
 ```
