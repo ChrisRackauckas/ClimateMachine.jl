@@ -35,6 +35,13 @@ ice_param_set = param_set.microphys_param_set.ice
 rain_param_set = param_set.microphys_param_set.rain
 snow_param_set = param_set.microphys_param_set.snow
 
+@testset "τ_relax" begin
+
+    @test τ_relax(liquid_param_set) ≈ 10
+    @test τ_relax(ice_param_set) ≈ 10
+
+end
+
 @testset "RainFallSpeed" begin
     # eq. 5d in Smolarkiewicz and Grabowski 1996
     # https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
@@ -62,7 +69,7 @@ snow_param_set = param_set.microphys_param_set.snow
     end
 end
 
-@testset "CloudCondEvap" begin
+@testset "CloudLiquidCondEvap" begin
 
     q_liq_sat = 5e-3
     frac = [0.0, 0.5, 1.0, 1.5]
@@ -81,6 +88,25 @@ end
     end
 end
 
+@testset "CloudIceCondEvap" begin
+
+    q_ice_sat = 2e-3
+    frac = [0.0, 0.5, 1.0, 1.5]
+
+    _τ_cond_evap = τ_relax(ice_param_set)
+
+    for fr in frac
+
+        q_ice = q_ice_sat * fr
+
+        @test conv_q_vap_to_q_liq_ice(
+            ice_param_set,
+            PhasePartition(0.0, 0.0, q_ice_sat),
+            PhasePartition(0.0, 0.0, q_ice),
+        ) ≈ (1 - fr) * q_ice_sat / _τ_cond_evap
+    end
+end
+
 @testset "RainAutoconversion" begin
 
     _q_liq_threshold = q_liq_threshold(rain_param_set)
@@ -92,6 +118,29 @@ end
     q_liq_big = 1.5 * _q_liq_threshold
     @test conv_q_liq_to_q_rai(rain_param_set, q_liq_big) ==
           0.5 * _q_liq_threshold / _τ_acnv
+end
+
+@testset "SnowAutoconversion" begin
+
+    ρ = 1.
+
+    # above freezing no snow autoconversion
+    q = PhasePartition(15e-3, 2e-3, 1e-3)
+    T = 273.15 + 30
+    @test conv_q_ice_to_q_sno(param_set, ice_param_set, q, ρ, T) == 0.0
+
+    # no ice -> no snow
+    q = PhasePartition(15e-3, 2e-3, 0.0)
+    T = 273.15 - 30
+    @test conv_q_ice_to_q_sno(param_set, ice_param_set, q, ρ, T) == 0.0
+
+    #TODO - tu skonczylam
+    ## no supersaturation -> no snow
+    #T = 273.15 - 5
+    #q_sat_ice = q_vap_saturation_generic(param_set, T, ρ; phase = Ice())
+    #q = PhasePartition(15e-3, 2e-3, q_sat_ice)
+    #@test conv_q_ice_to_q_sno(param_set, ice_param_set, q, ρ, T) == 0.0
+
 end
 
 @testset "RainAccretion" begin

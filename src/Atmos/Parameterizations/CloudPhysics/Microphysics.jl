@@ -1,10 +1,10 @@
 """
-    One-moment bulk microphysics scheme that includes:
+    One-moment bulk microphysics scheme, which includes:
 
   - terminal velocity of precipitation
   - condensation and evaporation of cloud liquid water and
     deposition and sublimation of cloud ice (relaxation to equilibrium)
-  - autoconversion of cloud liquid water into rain and cloud ice into snow
+  - autoconversion of cloud liquid water into rain and of cloud ice into snow
   - accretion due to collisions between categories of condensed species
   - evaporation and sublimation of hydrometeors
   - melting of snow into rain
@@ -27,15 +27,7 @@ const AIPS = AbstractIceParameterSet
 const ARPS = AbstractRainParameterSet
 const ASPS = AbstractSnowParameterSet
 
-export v0_rai
-export n0_sno
-export lambda
-export unpack_params
-
 export τ_relax
-
-export supersaturation
-export G_func
 
 export terminal_velocity
 
@@ -217,7 +209,7 @@ Returns supersaturation (qv/qv_sat -1) over water or ice.
 function supersaturation(param_set::APS, q::PhasePartition{FT}, ρ::FT, T::FT,
                          ::Liquid) where {FT<:Real}
 
-    q_sat::FT = q_vap_saturation_generic(param_set, T, ρ)
+    q_sat::FT = q_vap_saturation_generic(param_set, T, ρ; phase = Liquid())
     q_vap::FT = q.tot - q.liq - q.ice
 
     return q_vap/q_sat - FT(1)
@@ -225,7 +217,7 @@ end
 function supersaturation(param_set::APS, q::PhasePartition{FT}, ρ::FT, T::FT,
                          ::Ice) where {FT<:Real}
 
-    q_sat::FT = q_vap_saturation_generic(param_set, T, ρ, Ice())
+    q_sat::FT = q_vap_saturation_generic(param_set, T, ρ; phase = Ice())
     q_vap::FT = q.tot - q.liq - q.ice
 
     return q_vap/q_sat - FT(1)
@@ -279,7 +271,7 @@ end
  - `q_` - rain or snow specific humidity
 
 Returns the mass weighted average terminal velocity assuming
-Marshall Palmer 1948 distribution of rain drops and snow crystals.
+a Marshall-Palmer (1948) distribution of rain drops and snow crystals.
 """
 function terminal_velocity(param_set::APS, precip_param_set::APrecipPS,
                            ρ::FT, q_::FT) where {FT <: Real}
@@ -337,7 +329,7 @@ end
  - `q_liq` - liquid water specific humidity
 
 Returns the q_rai tendency due to collisions between cloud droplets
-(autoconversion), parametrized following Kessler 1995.
+(autoconversion), parametrized following Kessler (1995).
 """
 function conv_q_liq_to_q_rai(rain_param_set::ARPS,q_liq::FT) where {FT <: Real}
 
@@ -357,13 +349,15 @@ end
  - `T` - air temperature
 
 Returns the q_sno tendency due to autoconversion from ice.
-Parameterized following Harrington et al 1996 and Kaul et al 2015
+Parameterized following Harrington et al. (1996) and Kaul et al. (2015).
 """
 function conv_q_ice_to_q_sno(param_set::APS, ice_param_set::AIPS,
                              q::PhasePartition{FT}, ρ::FT,
                              T::FT) where {FT<:Real}
     acnv_rate = FT(0)
     _S::FT = supersaturation(param_set, q, ρ, T, Ice())
+
+    @info _S
 
     if (q.ice > FT(0) && _S > FT(0))
 
@@ -374,10 +368,10 @@ function conv_q_ice_to_q_sno(param_set::APS, ice_param_set::AIPS,
         (_n0, _r0, _m0, _me, _χm, _Δm) =
             unpack_params(param_set, ice_param_set, ρ, q.ice)
 
-        _λ::FT = lambda(q_, ρ, _n0, _m0, _me, _r0, _χm, _Δm)
+        _λ::FT = lambda(q.ice, ρ, _n0, _m0, _me, _r0, _χm, _Δm)
 
         acnv_rate = FT(4) * π * _S * _G * _n0 / ρ * exp(-_λ * _r_ice_snow) *
-                    (_r_ice_snow^FT(2) / (me + Δm)
+                    (_r_ice_snow^FT(2) / (_me + _Δm)
                       +
                      (_r_ice_snow * _λ + FT(1)) / _λ^FT(2)
                     )

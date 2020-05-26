@@ -19,13 +19,13 @@ The cloud microphysics variables are expressed as specific humidities:
 
 Particles are assumed to follow mass(radius), cross section(radius), and
   terminal velocity(radius) relationships defined as power laws.
-The coefficients are defined in
+The coefficients are defined in the
   [CLIMAParameters.jl](https://github.com/CliMA/CLIMAParameters.jl) package
   and are shown in the table below.
 For rain and ice they correspond to spherical liquid water drops
   and ice particles, respectively.
-There is no assumed particle shape for snow, and the relationships are based
-  on empirical values.
+There is no assumed particle shape for snow, and the relationships are
+  empirical.
 
 ```math
 m(r) = \chi_m \, m_0 \left(\frac{r}{r_0}\right)^{m_e + \Delta_m}
@@ -144,7 +144,7 @@ where:
 
 The coefficients are defined in
   [CLIMAParameters.jl](https://github.com/CliMA/CLIMAParameters.jl)
-package and are shown in the Table below.
+package and are shown in the table below.
 
 |    symbol       |         definition                           | units              | default value                             | reference  |
 |-----------------|----------------------------------------------|--------------------|-------------------------------------------|------------|
