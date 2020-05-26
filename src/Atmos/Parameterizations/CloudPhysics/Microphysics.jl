@@ -121,7 +121,7 @@ function unpack_params(param_set::APS, rain_param_set::ARPS, ρ::FT,
     _me::FT = me(rain_param_set)
     _a0::FT = a0(rain_param_set)
     _ae::FT = ae(rain_param_set)
-    _v0::FT = v0_rai(param_set, ρ)
+    _v0::FT = v0_rai(param_set, rain_param_set, ρ)
     _ve::FT = ve(rain_param_set)
 
     _χm::FT = χm(rain_param_set)
@@ -414,7 +414,7 @@ function accretion(param_set::APS,
 
         accr_rate = q_clo * _E * _n0 * _a0 * _v0 * _χa * _χv / _λ *
                     gamma(_ae + _ve + _Δa + _Δv + FT(1)) /
-                    (_λ * r0)^(_ae + _ve + Δa + Δv + FT(1))
+                    (_λ * _r0)^(_ae + _ve + _Δa + _Δv)
     end
     return accr_rate
 end
