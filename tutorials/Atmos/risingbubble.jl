@@ -42,7 +42,6 @@
 #md #     - Package requirements
 #md #     - Defining a `model` subtype for the set of conservation equations
 #md #     - Defining the initial conditions
-#md #     - Applying boundary conditions
 #md #     - Applying source terms
 #md #     - Choosing a turbulence model
 #md #     - Adding tracers to the model
@@ -233,6 +232,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     # tracer index identifier)
     ntracers = 4
     δ_χ = SVector{ntracers, FT}(1, 2, 3, 4)
+    # To assemble `AtmosModel` with no tracers, set `tracers = NoTracers()`.
 
     # The model coefficient for the turbulence closure is defined via the
     # [CLIMAParameters
