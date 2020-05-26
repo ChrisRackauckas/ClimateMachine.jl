@@ -191,7 +191,7 @@ let
 
                     @test all(big_dQ[:, (size(Q, 2) + 1):end, :] .== 0)
 
-                    big_dQ[:, (size(Q, 2) + 1):end, :] .= -7
+                    big_dQ.data[:, (size(Q, 2) + 1):end, :] .= -7
 
                     vdg(big_dQ, big_Q, nothing, 0; increment = true)
 
