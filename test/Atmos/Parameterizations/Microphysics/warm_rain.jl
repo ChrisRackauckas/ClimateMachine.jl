@@ -109,13 +109,9 @@ function kinematic_model_nodal_update_auxiliary_state!(
     # supersaturation
     q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
     aux.T = air_temperature(param_set, aux.e_int, q)
-    aux.S =
-        max(
-            0,
-            aux.q_vap / q_vap_saturation(param_set, aux.T, state.ρ, q) - FT(1),
-        ) * FT(100)
-    aux.RH =
-        aux.q_vap / q_vap_saturation(param_set, aux.T, state.ρ, q) * FT(100)
+    ts_neq = TemperatureSHumNonEquil(param_set, aux.T, state.ρ, q)
+    aux.S = max(0, aux.q_vap / q_vap_saturation(ts_neq) - FT(1)) * FT(100)
+    aux.RH = aux.q_vap / q_vap_saturation(ts_neq) * FT(100)
 
     aux.rain_w = terminal_velocity(
         param_set, rain_param_set, state.ρ, aux.q_rai)
@@ -247,7 +243,8 @@ function source!(
     q = PhasePartition(q_tot, q_liq, q_ice)
     T = air_temperature(param_set, e_int, q)
     # equilibrium state at current T
-    q_eq = PhasePartition_equil(param_set, T, state.ρ, q_tot)
+    ts_eq = TemperatureSHumEquil(param_set, T, state.ρ, q_tot)
+    q_eq = PhasePartition(ts_eq)
 
     # zero out the source terms
     source.ρq_tot = FT(0)
@@ -360,18 +357,26 @@ function main()
         end
 
     # output for paraview
+
+    # initialize base output prefix directory from rank 0
+    vtkdir = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk"))
+    if MPI.Comm_rank(mpicomm) == 0
+        mkpath(vtkdir)
+    end
+    MPI.Barrier(mpicomm)
+
     step = [0]
     cb_vtk =
         GenericCallbacks.EveryXSimulationSteps(output_freq) do (init = false)
-            mkpath("vtk/")
-            outprefix = @sprintf(
-                "vtk/new_ex_2_mpirank%04d_step%04d",
+            out_dirname = @sprintf(
+                "new_ex_2_mpirank%04d_step%04d",
                 MPI.Comm_rank(mpicomm),
                 step[1]
             )
-            @info "doing VTK output" outprefix
+            out_path_prefix = joinpath(vtkdir, out_dirname)
+            @info "doing VTK output" out_path_prefix
             writevtk(
-                outprefix,
+                out_path_prefix,
                 solver_config.Q,
                 solver_config.dg,
                 flattenednames(vars_state_conservative(model, FT)),
