@@ -479,7 +479,7 @@ end
 
     FT = typeof(state.ρ)
 
-    ws .= uN
+    ws = fill(uN, MVector{number_state_conservative(m, FT), FT})
 
     vars_ws.ρ = vars_ws.ρ + ss
     vars_ws.ρu = vars_ws.ρu .+ ss
