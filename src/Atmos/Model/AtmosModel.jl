@@ -478,8 +478,6 @@ end
     ss = soundspeed(m, m.moisture, state, aux)
 
     FT = typeof(state.ρ)
-    ws = -@MVector(zeros(FT, number_state_conservative(m, FT)))
-    vars_ws = Vars{vars_state_conservative(m, FT)}(ws)
 
     ws .= uN
 
